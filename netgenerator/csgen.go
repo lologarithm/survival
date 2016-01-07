@@ -17,14 +17,14 @@ func WriteCS(messages []Message, messageMap map[string]Message) {
 		gobuf.WriteString(" {")
 		for _, f := range msg.Fields {
 			gobuf.WriteString("\n\tpublic ")
-			gobuf.WriteString(strings.Replace(f.Type, "*", "", -1))
+			gobuf.WriteString(goTypeToCS(f.Type))
 			gobuf.WriteString(" ")
 			gobuf.WriteString(f.Name)
 			gobuf.WriteString(";")
 		}
 		gobuf.WriteString("\n\n")
 
-		gobuf.WriteString("\tpublic void Serialize(BinaryWriter writer) {\n")
+		gobuf.WriteString("\tpublic void Serialize(BinaryWriter buffer) {\n")
 		for _, f := range msg.Fields {
 			WriteCSSerialize(f, 1, gobuf, messageMap)
 		}
@@ -39,29 +39,45 @@ func WriteCS(messages []Message, messageMap map[string]Message) {
 	ioutil.WriteFile("../client/Assets/Scripts/messages/messages.cs", gobuf.Bytes(), 0775)
 }
 
+func goTypeToCS(tn string) string {
+	if len(tn) > 3 {
+		for tn[:2] == "[]" {
+			tn = tn[2:] + tn[:2]
+		}
+		if tn[:3] == "uin" {
+			tn = strings.ToUpper(tn[0:2]) + tn[2:]
+		} else if tn[:3] == "int" {
+			tn = strings.ToUpper(tn[0:1]) + tn[1:]
+		}
+	}
+	tn = strings.Replace(tn, "*", "", -1)
+
+	return tn
+}
+
 func WriteCSSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, messages map[string]Message) {
 	for i := 0; i < scopeDepth+1; i++ {
 		buf.WriteString("\t")
 	}
 	switch f.Type {
 	case "byte", "int16", "int32", "int64", "uint16", "uint32", "uint64":
-		buf.WriteString("writer.Write(")
+		buf.WriteString("buffer.Write(")
 		if scopeDepth == 1 {
 			buf.WriteString("this.")
 		}
 		buf.WriteString(f.Name)
 		buf.WriteString(");\n")
 	case "string":
-		buf.WriteString("writer.Write((int32)")
+		buf.WriteString("buffer.Write((Int32)")
 		if scopeDepth == 1 {
 			buf.WriteString("this.")
 		}
 		buf.WriteString(f.Name)
-		buf.WriteString(".length);\n")
+		buf.WriteString(".Length);\n")
 		for i := 0; i < scopeDepth+1; i++ {
 			buf.WriteString("\t")
 		}
-		buf.WriteString("writer.Write(")
+		buf.WriteString("buffer.Write(")
 		if scopeDepth == 1 {
 			buf.WriteString("this.")
 		}
@@ -70,22 +86,30 @@ func WriteCSSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, message
 	default:
 		if f.Type[:2] == "[]" {
 			// Array!
-			buf.WriteString("writer.Write((int32)")
+			buf.WriteString("buffer.Write((Int32)")
 			if scopeDepth == 1 {
 				buf.WriteString("this.")
 			}
 			buf.WriteString(f.Name)
-			buf.WriteString(".length);\n")
+			buf.WriteString(".Length);\n")
 			for i := 0; i < scopeDepth+1; i++ {
 				buf.WriteString("\t")
 			}
-			buf.WriteString("for ( int i=0; i < ")
+
+			loopvar := "v" + strconv.Itoa(scopeDepth+1)
+			buf.WriteString("for (int ")
+			buf.WriteString(loopvar)
+			buf.WriteString(" = 0; ")
+			buf.WriteString(loopvar)
+			buf.WriteString(" < ")
 			if scopeDepth == 1 {
 				buf.WriteString("this.")
 			}
 			buf.WriteString(f.Name)
-			buf.WriteString(".length; i++) {\n")
-			fn := f.Name + "[i]"
+			buf.WriteString(".Length; ")
+			buf.WriteString(loopvar)
+			buf.WriteString("++) {\n")
+			fn := f.Name + "[" + loopvar + "]"
 			if scopeDepth == 1 {
 				fn = "this." + fn
 			}
@@ -172,23 +196,40 @@ func WriteCSDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 			}
 			buf.WriteString(f.Name)
 			buf.WriteString(" = new ")
-			buf.WriteString(strings.Replace(f.Type[2:], "*", "", -1))
+			t := goTypeToCS(f.Type)
+			numdim := 0
+			for t[len(t)-2:] == "[]" {
+				t = t[:len(t)-2]
+				numdim++
+			}
+			buf.WriteString(t)
 			buf.WriteString("[")
 			buf.WriteString(lname)
-			buf.WriteString("];\n")
+			buf.WriteString("]")
+			for i := 0; i < numdim-1; i++ {
+				buf.WriteString("[]")
+			}
+			buf.WriteString(";\n")
 
 			// Read each var into the array in loop
 			for i := 0; i < scopeDepth+1; i++ {
 				buf.WriteString("\t")
 			}
-			buf.WriteString("for i := 0; i < ")
+			loopvar := "v" + strconv.Itoa(scopeDepth+1)
+			buf.WriteString("for (int ")
+			buf.WriteString(loopvar)
+			buf.WriteString(" = 0; ")
+			buf.WriteString(loopvar)
+			buf.WriteString(" < ")
 			buf.WriteString(lname)
-			buf.WriteString("; i++ {\n")
+			buf.WriteString("; ")
+			buf.WriteString(loopvar)
+			buf.WriteString("++) {\n")
 			fn := ""
 			if scopeDepth == 1 {
 				fn += "this."
 			}
-			fn += f.Name + "[i]"
+			fn += f.Name + "[" + loopvar + "]"
 			WriteCSDeserial(MessageField{Name: fn, Type: f.Type[2:]}, scopeDepth+1, buf, messages)
 			for i := 0; i < scopeDepth+1; i++ {
 				buf.WriteString("\t")

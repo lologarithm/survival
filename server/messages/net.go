@@ -65,7 +65,7 @@ func ParseNetMessage(msgFrame Frame, content []byte) Net {
 }
 
 type Login struct {
-	Name     string
+	Name string
 	Password string
 }
 
@@ -99,7 +99,7 @@ func (m *ListGames) Deserialize(buffer *bytes.Buffer) {
 }
 
 type ListGamesResponse struct {
-	IDs   []uint32
+	IDs []uint32
 	Names []string
 }
 
@@ -152,7 +152,7 @@ func (m *CreateGame) Deserialize(buffer *bytes.Buffer) {
 }
 
 type JoinGame struct {
-	ID     uint32
+	ID uint32
 	CharID uint32
 }
 
@@ -168,7 +168,7 @@ func (m *JoinGame) Deserialize(buffer *bytes.Buffer) {
 
 type CreateCharacter struct {
 	Name string
-	Kit  byte
+	Kit byte
 }
 
 func (m *CreateCharacter) Serialize(buffer *bytes.Buffer) {
@@ -199,7 +199,7 @@ func (m *DeleteCharacter) Deserialize(buffer *bytes.Buffer) {
 }
 
 type MapLoaded struct {
-	Tiles    [][]byte
+	Tiles [][]byte
 	Entities []*Entity
 }
 
@@ -239,10 +239,10 @@ func (m *MapLoaded) Deserialize(buffer *bytes.Buffer) {
 }
 
 type Entity struct {
-	ID            uint32
+	ID uint32
 	HealthPercent byte
-	X             int32
-	Y             int32
+	X int32
+	Y int32
 }
 
 func (m *Entity) Serialize(buffer *bytes.Buffer) {
@@ -273,7 +273,7 @@ func (m *EntityMove) Deserialize(buffer *bytes.Buffer) {
 
 type UseAbility struct {
 	AbilityID int32
-	Target    uint32
+	Target uint32
 }
 
 func (m *UseAbility) Serialize(buffer *bytes.Buffer) {
@@ -289,7 +289,7 @@ func (m *UseAbility) Deserialize(buffer *bytes.Buffer) {
 type AbilityResult struct {
 	Target *Entity
 	Damage int32
-	State  byte
+	State byte
 }
 
 func (m *AbilityResult) Serialize(buffer *bytes.Buffer) {
@@ -313,3 +313,4 @@ func (m *EndGame) Serialize(buffer *bytes.Buffer) {
 
 func (m *EndGame) Deserialize(buffer *bytes.Buffer) {
 }
+
