@@ -155,6 +155,11 @@ public class Network : MonoBehaviour
     {
         CloseConnection();
     }
+
+	// Awake dont destroy keeps this object in memory even when we load a different scene.
+	void Awake () {
+		DontDestroyOnLoad(gameObject);
+	}
 }
 
 public class NetMessage
