@@ -31,6 +31,14 @@ public class PlayerController : MonoBehaviour {
 
         moveVector = moveVector.normalized;
         Debug.Log(moveVector.ToString());
+
+        foreach (ControlConst ability in ControlConst.Abilities)
+        {
+            if (isPressed(ability))
+            {
+                // do something 
+            }
+        }
 	}
 
     // Returns if the given key axis is pressed

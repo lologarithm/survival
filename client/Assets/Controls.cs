@@ -21,5 +21,7 @@ namespace Assets
         public static ControlConst MoveRight { get { return new ControlConst("MoveRight"); } }
         public static ControlConst MoveUp { get { return new ControlConst("MoveUp"); } }
         public static ControlConst MoveDown { get { return new ControlConst("MoveDown"); } }
+
+        public static ControlConst[] Abilities = { Ability1, Ability2, Ability3, Ability4, Ability5, Ability6 };
     }
 }
