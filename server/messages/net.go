@@ -3,6 +3,7 @@ package messages
 import (
 	"bytes"
 	"encoding/binary"
+	"log"
 )
 
 type Net interface {
@@ -15,6 +16,7 @@ type MessageType byte
 const (
 	UnknownMsgType MessageType = iota
 	LoginMsgType
+	LoginResponseMsgType
 	ListGamesMsgType
 	ListGamesResponseMsgType
 	CreateGameMsgType
@@ -35,6 +37,8 @@ func ParseNetMessage(msgFrame Frame, content []byte) Net {
 	switch msgFrame.MsgType {
 	case LoginMsgType:
 		msg = &Login{}
+	case LoginResponseMsgType:
+		msg = &LoginResponse{}
 	case ListGamesMsgType:
 		msg = &ListGames{}
 	case ListGamesResponseMsgType:
@@ -59,6 +63,8 @@ func ParseNetMessage(msgFrame Frame, content []byte) Net {
 		msg = &AbilityResult{}
 	case EndGameMsgType:
 		msg = &EndGame{}
+	default:
+		log.Printf("Unknown message type: %d", msgFrame.MsgType)
 	}
 	msg.Deserialize(bytes.NewBuffer(content))
 	return msg
@@ -87,6 +93,18 @@ func (m *Login) Deserialize(buffer *bytes.Buffer) {
 	temp1_1 := make([]byte, l1_1)
 	buffer.Read(temp1_1)
 	m.Password = string(temp1_1)
+}
+
+type LoginResponse struct {
+	Success byte
+}
+
+func (m *LoginResponse) Serialize(buffer *bytes.Buffer) {
+	buffer.WriteByte(m.Success)
+}
+
+func (m *LoginResponse) Deserialize(buffer *bytes.Buffer) {
+	m.Success, _ = buffer.ReadByte()
 }
 
 type ListGames struct {

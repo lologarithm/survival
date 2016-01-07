@@ -4,6 +4,10 @@ class Login {
  Password string
 }
 
+class LoginResponse {
+ Success byte
+}
+
 class ListGames {
 }
 

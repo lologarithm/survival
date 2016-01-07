@@ -8,7 +8,7 @@ import (
 
 func WriteGo(messages []Message, messageMap map[string]Message) {
 	gobuf := &bytes.Buffer{}
-	gobuf.WriteString("package messages\n\nimport (\n\t\"bytes\"\n\t\"encoding/binary\"\n)\n\n")
+	gobuf.WriteString("package messages\n\nimport (\n\t\"bytes\"\n\t\"encoding/binary\"\n\t\"log\"\n)\n\n")
 	// 1. List type values!
 	gobuf.WriteString("type Net interface {\n\tSerialize(*bytes.Buffer)\n\tDeserialize(*bytes.Buffer)\n}\n\n")
 	gobuf.WriteString("type MessageType byte\n\n")
@@ -33,7 +33,7 @@ func WriteGo(messages []Message, messageMap map[string]Message) {
 		gobuf.WriteString(t.Name)
 		gobuf.WriteString("{}\n")
 	}
-	gobuf.WriteString("\t}\n\tmsg.Deserialize(bytes.NewBuffer(content))\n\treturn msg\n}\n\n")
+	gobuf.WriteString("\tdefault:\n\t\tlog.Printf(\"Unknown message type: %d\", msgFrame.MsgType)\n\t}\n\tmsg.Deserialize(bytes.NewBuffer(content))\n\treturn msg\n}\n\n")
 
 	// 2. Generate go classes
 	for _, msg := range messages {

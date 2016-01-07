@@ -57,6 +57,8 @@ func (s *Server) sendMessages() {
 		msg := <-s.outToNetwork
 		if n, err := s.conn.WriteToUDP(msg.msg.RawBytes, msg.dest.address); err != nil {
 			fmt.Println("Error: ", err, " Bytes Written: ", n)
+		} else {
+			log.Printf("Wrote %d bytes to %v.", n, msg.dest.address)
 		}
 	}
 }

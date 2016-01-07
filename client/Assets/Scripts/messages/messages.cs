@@ -1,15 +1,79 @@
 using System;
 using System.IO;
+using System.Text;
 
-public class Login {
+interface INet {
+	void Serialize(BinaryWriter buffer);
+	void Deserialize(BinaryReader buffer);
+}
+
+enum MsgType : byte {Unknown=0,Login=1,LoginResponse=2,ListGames=3,ListGamesResponse=4,CreateGame=5,JoinGame=6,CreateCharacter=7,DeleteCharacter=8,MapLoaded=9,Entity=10,EntityMove=11,UseAbility=12,AbilityResult=13,EndGame=14}
+
+static class Messages {
+// ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.
+public static INet Parse(byte msgType, byte[] content) {
+	INet msg = null;
+	MsgType mt = (MsgType)msgType;
+	switch (mt)
+	{
+		case MsgType.Login:
+			msg = new Login();
+			break;
+		case MsgType.LoginResponse:
+			msg = new LoginResponse();
+			break;
+		case MsgType.ListGames:
+			msg = new ListGames();
+			break;
+		case MsgType.ListGamesResponse:
+			msg = new ListGamesResponse();
+			break;
+		case MsgType.CreateGame:
+			msg = new CreateGame();
+			break;
+		case MsgType.JoinGame:
+			msg = new JoinGame();
+			break;
+		case MsgType.CreateCharacter:
+			msg = new CreateCharacter();
+			break;
+		case MsgType.DeleteCharacter:
+			msg = new DeleteCharacter();
+			break;
+		case MsgType.MapLoaded:
+			msg = new MapLoaded();
+			break;
+		case MsgType.Entity:
+			msg = new Entity();
+			break;
+		case MsgType.EntityMove:
+			msg = new EntityMove();
+			break;
+		case MsgType.UseAbility:
+			msg = new UseAbility();
+			break;
+		case MsgType.AbilityResult:
+			msg = new AbilityResult();
+			break;
+		case MsgType.EndGame:
+			msg = new EndGame();
+			break;
+	}
+	MemoryStream ms = new MemoryStream(content);
+	msg.Deserialize(new BinaryReader(ms));
+	return msg;
+}
+}
+
+public class Login : INet {
 	public string Name;
 	public string Password;
 
 	public void Serialize(BinaryWriter buffer) {
 		buffer.Write((Int32)this.Name.Length);
-		buffer.Write(this.Name);
+		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
 		buffer.Write((Int32)this.Password.Length);
-		buffer.Write(this.Password);
+		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Password));
 	}
 
 	public void Deserialize(BinaryReader buffer) {
@@ -22,7 +86,19 @@ public class Login {
 	}
 }
 
-public class ListGames {
+public class LoginResponse : INet {
+	public byte Success;
+
+	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.Success);
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+		this.Success = buffer.ReadByte();
+	}
+}
+
+public class ListGames : INet {
 
 	public void Serialize(BinaryWriter buffer) {
 	}
@@ -31,50 +107,44 @@ public class ListGames {
 	}
 }
 
-public class ListGamesResponse {
-    public UInt32[] IDs;
-    public string[] Names;
+public class ListGamesResponse : INet {
+	public UInt32[] IDs;
+	public string[] Names;
 
-    public void Serialize(BinaryWriter buffer)
-    {
-        buffer.Write((Int32)this.IDs.Length);
-        for (int v2 = 0; v2 < this.IDs.Length; v2++)
-        {
-            buffer.Write(this.IDs[v2]);
-        }
-        buffer.Write((Int32)this.Names.Length);
-        for (int v2 = 0; v2 < this.Names.Length; v2++)
-        {
-            buffer.Write((Int32)this.Names[v2].Length);
-            buffer.Write(this.Names[v2]);
-        }
-    }
+	public void Serialize(BinaryWriter buffer) {
+		buffer.Write((Int32)this.IDs.Length);
+		for (int v2 = 0; v2 < this.IDs.Length; v2++) {
+			buffer.Write(this.IDs[v2]);
+		}
+		buffer.Write((Int32)this.Names.Length);
+		for (int v2 = 0; v2 < this.Names.Length; v2++) {
+			buffer.Write((Int32)this.Names[v2].Length);
+			buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Names[v2]));
+		}
+	}
 
-    public void Deserialize(BinaryReader buffer)
-    {
-        int l0_1 = buffer.ReadInt32();
-        this.IDs = new UInt32[l0_1];
-        for (int v2 = 0; v2 < l0_1; v2++)
-        {
-            this.IDs[v2] = buffer.ReadUInt32();
-        }
-        int l1_1 = buffer.ReadInt32();
-        this.Names = new string[l1_1];
-        for (int v2 = 0; v2 < l1_1; v2++)
-        {
-            int l0_2 = buffer.ReadInt32();
-            byte[] temp0_2 = buffer.ReadBytes(l0_2);
-            this.Names[v2] = System.Text.Encoding.UTF8.GetString(temp0_2);
-        }
-    }
+	public void Deserialize(BinaryReader buffer) {
+		int l0_1 = buffer.ReadInt32();
+		this.IDs = new UInt32[l0_1];
+		for (int v2 = 0; v2 < l0_1; v2++) {
+			this.IDs[v2] = buffer.ReadUInt32();
+		}
+		int l1_1 = buffer.ReadInt32();
+		this.Names = new string[l1_1];
+		for (int v2 = 0; v2 < l1_1; v2++) {
+			int l0_2 = buffer.ReadInt32();
+			byte[] temp0_2 = buffer.ReadBytes(l0_2);
+			this.Names[v2] = System.Text.Encoding.UTF8.GetString(temp0_2);
+		}
+	}
 }
 
-public class CreateGame {
+public class CreateGame : INet {
 	public string Name;
 
 	public void Serialize(BinaryWriter buffer) {
 		buffer.Write((Int32)this.Name.Length);
-		buffer.Write(this.Name);
+		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
 	}
 
 	public void Deserialize(BinaryReader buffer) {
@@ -84,7 +154,7 @@ public class CreateGame {
 	}
 }
 
-public class JoinGame {
+public class JoinGame : INet {
 	public UInt32 ID;
 	public UInt32 CharID;
 
@@ -99,13 +169,13 @@ public class JoinGame {
 	}
 }
 
-public class CreateCharacter {
+public class CreateCharacter : INet {
 	public string Name;
 	public byte Kit;
 
 	public void Serialize(BinaryWriter buffer) {
 		buffer.Write((Int32)this.Name.Length);
-		buffer.Write(this.Name);
+		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
 		buffer.Write(this.Kit);
 	}
 
@@ -117,7 +187,7 @@ public class CreateCharacter {
 	}
 }
 
-public class DeleteCharacter {
+public class DeleteCharacter : INet {
 	public Int32 ID;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -129,7 +199,7 @@ public class DeleteCharacter {
 	}
 }
 
-public class MapLoaded {
+public class MapLoaded : INet {
 	public byte[][] Tiles;
 	public Entity[] Entities;
 
@@ -166,7 +236,7 @@ public class MapLoaded {
 	}
 }
 
-public class Entity {
+public class Entity : INet {
 	public UInt32 ID;
 	public byte HealthPercent;
 	public Int32 X;
@@ -187,7 +257,7 @@ public class Entity {
 	}
 }
 
-public class EntityMove {
+public class EntityMove : INet {
 	public byte Direction;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -199,7 +269,7 @@ public class EntityMove {
 	}
 }
 
-public class UseAbility {
+public class UseAbility : INet {
 	public Int32 AbilityID;
 	public UInt32 Target;
 
@@ -214,7 +284,7 @@ public class UseAbility {
 	}
 }
 
-public class AbilityResult {
+public class AbilityResult : INet {
 	public Entity Target;
 	public Int32 Damage;
 	public byte State;
@@ -233,7 +303,7 @@ public class AbilityResult {
 	}
 }
 
-public class EndGame {
+public class EndGame : INet {
 
 	public void Serialize(BinaryWriter buffer) {
 	}
@@ -241,3 +311,4 @@ public class EndGame {
 	public void Deserialize(BinaryReader buffer) {
 	}
 }
+

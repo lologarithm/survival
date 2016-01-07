@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net"
 
 	"github.com/lologarithm/survival/server/messages"
@@ -30,17 +31,25 @@ func (client *Client) ProcessBytes(toGameManager chan GameMessage, toClient chan
 		select {
 		case bytes, ok := <-client.fromNetwork:
 			if !ok {
+				client.Alive = false
 				break
 			} else {
 				client.buffer = append(client.buffer, bytes...)
 				msgFrame, ok := messages.ParseFrame(client.buffer)
+				numMsgBytes := messages.FrameLen + int(msgFrame.ContentLength)
+				if msgFrame.MsgType == 255 {
+					// TODO: this should probably not be a random 1off?
+					client.Alive = false
+					break
+				}
 				// Only try to parse if we have collected enough bytes.
-				if ok && messages.FrameLen+int(msgFrame.Length) <= len(client.buffer) {
-					netMsg := messages.ParseNetMessage(msgFrame, client.buffer[messages.FrameLen:messages.FrameLen+int(msgFrame.Length)])
+				if ok && numMsgBytes <= len(client.buffer) {
+					log.Printf("Bytes: %v", client.buffer[:numMsgBytes])
+					netMsg := messages.ParseNetMessage(msgFrame, client.buffer[messages.FrameLen:numMsgBytes])
 					toGameManager <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
 					// Remove the used bytes from the buffer.
-					newBuffer := make([]byte, len(client.buffer)-messages.FrameLen+int(msgFrame.Length))
-					copy(newBuffer, client.buffer[messages.FrameLen+int(msgFrame.Length):])
+					newBuffer := make([]byte, len(client.buffer)-numMsgBytes)
+					copy(newBuffer, client.buffer[numMsgBytes:])
 					client.buffer = newBuffer
 				}
 			}

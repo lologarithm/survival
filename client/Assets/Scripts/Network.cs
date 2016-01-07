@@ -21,8 +21,9 @@ public class Network : MonoBehaviour
     // Use this for initialization
     void Start()
     {
+		Debug.Log("Starting network now!");
         this.stored_bytes = new List<byte>();
-        this.send_to_address = IPAddress.Parse("192.168.1.35");
+        this.send_to_address = IPAddress.Parse("127.0.0.1");
         this.sending_end_point = new IPEndPoint(send_to_address, 24816);
 
         Login login_msg = new Login();
@@ -33,11 +34,12 @@ public class Network : MonoBehaviour
 
         NetMessage msg = new NetMessage();
 
-        MemoryStream stream = new MemoryStream();
+		MemoryStream stream = new MemoryStream();
         BinaryWriter buffer = new BinaryWriter(stream);
         login_msg.Serialize(buffer);
         msg.content = stream.ToArray();
-        msg.message_type = 1;
+		msg.content_length = (UInt16)msg.content.Length;
+		msg.message_type = (byte)MsgType.Login;
         sending_socket.Send(msg.MessageBytes());
         // 1. Fetch network!
         // Start Receive and a new Accept
@@ -65,13 +67,11 @@ public class Network : MonoBehaviour
         {
             CloseConnection();
             Debug.Log("Socket exception: " + exc.SocketErrorCode);
-            //			Console.WriteLine("Socket exception: " + exc.SocketErrorCode);
         }
         catch (Exception exc)
         {
             CloseConnection();
             Debug.Log("Exception: " + exc);
-            //			Console.WriteLine("Exception: " + exc);
         }
 
         if (bytesRead > 0)
@@ -100,24 +100,22 @@ public class Network : MonoBehaviour
             if (nMsg != null)
             {
                 // Check for full content available. If so, time to add this to the processing queue.
-                if (nMsg.full_content.Length == nMsg.content_length + NetMessage.DEFAULT_FRAME_LEN)
-                {
-                    stored_bytes.RemoveRange(0, nMsg.full_content.Length);
-                    this.message_queue.Enqueue(nMsg);
-                    // If we have enough bytes to start a new message we call ProcessBytes again.
-                    if (input_bytes.Length - nMsg.full_content.Length > NetMessage.DEFAULT_FRAME_LEN)
-                    {
-                        ProcessBytes();
-                    }
-                }
-            }
-            else {
+				if (nMsg.full_content.Length == nMsg.content_length + NetMessage.DEFAULT_FRAME_LEN) {
+					stored_bytes.RemoveRange (0, nMsg.full_content.Length);
+					this.message_queue.Enqueue (nMsg);
+					// If we have enough bytes to start a new message we call ProcessBytes again.
+					if (input_bytes.Length - nMsg.full_content.Length > NetMessage.DEFAULT_FRAME_LEN) {
+						ProcessBytes ();
+					}
+				}
+            } else {
                 this.current_message = nMsg;
                 this.stored_bytes.RemoveRange(0, NetMessage.DEFAULT_FRAME_LEN);
                 // Leave this as the this.current_message
             }
         }
         else {
+			Debug.Log ("already have a message, lets try to add more bytes!");
             if (this.current_message.loadContent(input_bytes))
             {
                 // We have enough bytes!
@@ -136,19 +134,21 @@ public class Network : MonoBehaviour
         for (int i = 0; i < loops; i++)
         {
             NetMessage msg = this.message_queue.Dequeue();
-            switch (msg.message_type)
-            {
-            }
-        }
-        // Read from message queue and process!
-        // Send updates to each object.
+			INet parsedMsg = Messages.Parse (msg.message_type, msg.Content ());
 
+			// Read from message queue and process!
+			// Send updates to each object.
+
+			Debug.Log("Got message: " + parsedMsg);
+        }
     }
 
     void CloseConnection()
     {
-        sending_socket.Send(new byte[] { 255, 0, 0, 0, 0, 0, 0 });
-        sending_socket.Close();
+		if (sending_socket.Connected) {
+			sending_socket.Send (new byte[] { 255, 0, 0, 0, 0, 0, 0 });
+			sending_socket.Close ();
+		}
     }
 
     void OnApplicationQuit()
@@ -185,8 +185,8 @@ public class NetMessage
 
     public byte[] Content()
     {
-        byte[] content = null;
-        Array.Copy(this.full_content, DEFAULT_FRAME_LEN, content, 0, this.full_content.Length - DEFAULT_FRAME_LEN);
+		byte[] content = new byte[this.content_length];
+		Array.Copy(this.full_content, DEFAULT_FRAME_LEN, content, 0, this.content_length);
         return content;
     }
 
@@ -198,23 +198,23 @@ public class NetMessage
             newMsg = new NetMessage();
             newMsg.message_type = bytes[0];
             newMsg.sequence = BitConverter.ToUInt16(bytes, 1);
-            newMsg.content_length = BitConverter.ToUInt16(bytes, 5);
-            if (bytes.Length > DEFAULT_FRAME_LEN + newMsg.content_length)
+            newMsg.content_length = BitConverter.ToUInt16(bytes, 3);
+
+			int totalLen = DEFAULT_FRAME_LEN + newMsg.content_length; 
+            if (bytes.Length >= totalLen)
             {
-                Array.Copy(bytes, 0, newMsg.full_content, 0, DEFAULT_FRAME_LEN + newMsg.content_length);
+				newMsg.full_content = new byte[totalLen];
+				Array.Copy(bytes, 0, newMsg.full_content, 0, totalLen);
             }
         }
-
         return newMsg;
     }
 
     public bool loadContent(byte[] bytes)
     {
-        if (bytes.Length >= this.content_length)
+        if (bytes.Length >= this.content_length+DEFAULT_FRAME_LEN)
         {
-            byte[] new_content = new byte[DEFAULT_FRAME_LEN + this.content_length];
-            Array.Copy(this.full_content, 0, new_content, 0, DEFAULT_FRAME_LEN);
-            Array.Copy(bytes, 0, new_content, DEFAULT_FRAME_LEN, this.content_length);
+			Array.Copy(bytes, 0, this.full_content, 0, DEFAULT_FRAME_LEN + this.content_length);
             return true;
         }
 

@@ -10,11 +10,43 @@ import (
 func WriteCS(messages []Message, messageMap map[string]Message) {
 	gobuf := &bytes.Buffer{}
 	gobuf.WriteString("using System;\nusing System.IO;\nusing System.Text;\n\n")
+
+	gobuf.WriteString("interface INet {\n\tvoid Serialize(BinaryWriter buffer);\n\tvoid Deserialize(BinaryReader buffer);\n}\n\n")
+
+	// Message type enum
+	gobuf.WriteString("enum MsgType : byte {Unknown=0,")
+	for idx, t := range messages {
+		gobuf.WriteString(t.Name)
+		gobuf.WriteString("=")
+		gobuf.WriteString(strconv.Itoa(idx + 1))
+		if idx < len(messages)-1 {
+			gobuf.WriteString(",")
+		}
+	}
+	gobuf.WriteString("}\n\n")
+
+	gobuf.WriteString("static class Messages {\n")
+	gobuf.WriteString("// ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.\n")
+	gobuf.WriteString("public static INet Parse(byte msgType, byte[] content) {\n")
+	gobuf.WriteString("\tINet msg = null;\n\tMsgType mt = (MsgType)msgType;\n")
+	gobuf.WriteString("\tswitch (mt)\n\t{\n")
+	for _, t := range messages {
+		gobuf.WriteString("\t\tcase MsgType.")
+		gobuf.WriteString(t.Name)
+		gobuf.WriteString(":\n")
+		gobuf.WriteString("\t\t\tmsg = new ")
+		gobuf.WriteString(t.Name)
+		gobuf.WriteString("();\n\t\t\tbreak;\n")
+	}
+	gobuf.WriteString("\t}\n")
+	gobuf.WriteString("\tMemoryStream ms = new MemoryStream(content);")
+	gobuf.WriteString("\n\tmsg.Deserialize(new BinaryReader(ms));\n\treturn msg;\n}\n")
+	gobuf.WriteString("}\n\n")
 	// 2. Generate go classes
 	for _, msg := range messages {
 		gobuf.WriteString("public class ")
 		gobuf.WriteString(msg.Name)
-		gobuf.WriteString(" {")
+		gobuf.WriteString(" : INet {")
 		for _, f := range msg.Fields {
 			gobuf.WriteString("\n\tpublic ")
 			gobuf.WriteString(goTypeToCS(f.Type))
@@ -77,12 +109,12 @@ func WriteCSSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, message
 		for i := 0; i < scopeDepth+1; i++ {
 			buf.WriteString("\t")
 		}
-		buf.WriteString("buffer.Write(")
+		buf.WriteString("buffer.Write(System.Text.Encoding.UTF8.GetBytes(")
 		if scopeDepth == 1 {
 			buf.WriteString("this.")
 		}
 		buf.WriteString(f.Name)
-		buf.WriteString(");\n")
+		buf.WriteString("));\n")
 	default:
 		if f.Type[:2] == "[]" {
 			// Array!

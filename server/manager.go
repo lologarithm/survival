@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"time"
@@ -72,6 +73,25 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 	case messages.LoginMsgType:
 		tmsg := msg.net.(*messages.Login)
 		log.Printf("Logging in user: %s", tmsg.Name)
+		lr := messages.LoginResponse{
+			Success: 1,
+		}
+		buf := new(bytes.Buffer)
+		lr.Serialize(buf)
+		frame := messages.Frame{
+			MsgType:       messages.LoginResponseMsgType,
+			Seq:           1,
+			ContentLength: uint16(buf.Len()),
+		}
+		// TODO: automate making this.
+		resp := &OutgoingMessage{
+			dest: msg.client,
+			msg: messages.Message{
+				Frame: frame,
+			},
+		}
+		resp.msg.CreateMessageBytes(buf.Bytes())
+		gm.ToNetwork <- *resp
 	}
 }
 
