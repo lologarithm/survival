@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/lologarithm/survival/server/messages"
 )
 
 func TestBasicServer(t *testing.T) {
@@ -29,12 +32,19 @@ func TestBasicServer(t *testing.T) {
 	}
 	//fmt.Println("Connection Complete")
 	messageBytes := new(bytes.Buffer)
-	messageBytes.WriteByte(1)
+	messageBytes.WriteByte(byte(messages.LoginMsgType))
 	binary.Write(messageBytes, binary.LittleEndian, uint16(0))
-	binary.Write(messageBytes, binary.LittleEndian, uint16(3))
-	messageBytes.WriteByte(97)
-	messageBytes.WriteByte(58)
-	messageBytes.WriteByte(97)
+
+	tbuf := new(bytes.Buffer)
+	msg := &messages.Login{
+		Name:     "testuser",
+		Password: "test",
+	}
+	msg.Serialize(tbuf)
+
+	binary.Write(messageBytes, binary.LittleEndian, uint16(tbuf.Len()))
+	tbuf.WriteTo(messageBytes)
+	log.Printf("Writing Msg: %v", messageBytes.Bytes())
 	conn.Write(messageBytes.Bytes())
 	if err != nil {
 		fmt.Println(err)

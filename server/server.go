@@ -7,6 +7,8 @@ import (
 	"net"
 	"os"
 	"time"
+
+	"github.com/lologarithm/survival/server/messages"
 )
 
 const (
@@ -16,7 +18,7 @@ const (
 type Server struct {
 	conn             *net.UDPConn
 	disconnectPlayer chan Client
-	outToNetwork     chan NetMessage
+	outToNetwork     chan OutgoingMessage
 	toGameManager    chan GameMessage
 	inputBuffer      []byte
 	encryptionKey    *rsa.PrivateKey
@@ -53,7 +55,7 @@ func (s *Server) DisconnectConn(addrkey string) {
 func (s *Server) sendMessages() {
 	for {
 		msg := <-s.outToNetwork
-		if n, err := s.conn.WriteToUDP(msg.rawBytes, msg.destination.address); err != nil {
+		if n, err := s.conn.WriteToUDP(msg.msg.RawBytes, msg.dest.address); err != nil {
 			fmt.Println("Error: ", err, " Bytes Written: ", n)
 		}
 	}
@@ -61,8 +63,7 @@ func (s *Server) sendMessages() {
 
 func RunServer(exit chan int) {
 	toGameManager := make(chan GameMessage, 1024)
-	outToNetwork := make(chan NetMessage, 1024)
-	fmt.Println("Starting!")
+	outToNetwork := make(chan OutgoingMessage, 1024)
 
 	manager := NewGameManager(exit, toGameManager, outToNetwork)
 	go manager.Run()
@@ -87,6 +88,7 @@ func RunServer(exit chan int) {
 	}
 
 	go s.sendMessages()
+	fmt.Println("Server Started!")
 
 	run := true
 	for run {
@@ -101,4 +103,9 @@ func RunServer(exit chan int) {
 			s.handleMessage()
 		}
 	}
+}
+
+type OutgoingMessage struct {
+	dest *Client
+	msg  messages.Message
 }
