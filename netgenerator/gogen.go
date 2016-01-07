@@ -9,6 +9,32 @@ import (
 func WriteGo(messages []Message, messageMap map[string]Message) {
 	gobuf := &bytes.Buffer{}
 	gobuf.WriteString("package messages\n\nimport (\n\t\"bytes\"\n\t\"encoding/binary\"\n)\n\n")
+	// 1. List type values!
+	gobuf.WriteString("type Net interface {\n\tSerialize(*bytes.Buffer)\n\tDeserialize(*bytes.Buffer)\n}\n\n")
+	gobuf.WriteString("type MessageType byte\n\n")
+	gobuf.WriteString("const (\n\tUnknownMsgType MessageType = iota\n")
+	for _, t := range messages {
+		gobuf.WriteString("\t")
+		gobuf.WriteString(t.Name)
+		gobuf.WriteString("MsgType\n")
+	}
+	gobuf.WriteString(")\n\n")
+
+	// 1.a. Parent parser function
+	gobuf.WriteString("// ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.\n")
+	gobuf.WriteString("func ParseNetMessage(msgFrame Frame, content []byte) Net {\n")
+	gobuf.WriteString("\tvar msg Net\n")
+	gobuf.WriteString("\tswitch msgFrame.MsgType {\n")
+	for _, t := range messages {
+		gobuf.WriteString("\tcase ")
+		gobuf.WriteString(t.Name)
+		gobuf.WriteString("MsgType:\n")
+		gobuf.WriteString("\t\tmsg = &")
+		gobuf.WriteString(t.Name)
+		gobuf.WriteString("{}\n")
+	}
+	gobuf.WriteString("\t}\n\tmsg.Deserialize(bytes.NewBuffer(content))\n\treturn msg\n}\n\n")
+
 	// 2. Generate go classes
 	for _, msg := range messages {
 		gobuf.WriteString("type ")
@@ -38,7 +64,7 @@ func WriteGo(messages []Message, messageMap map[string]Message) {
 		gobuf.WriteString("}\n\n")
 
 	}
-	ioutil.WriteFile("../server/messages/messages.go", gobuf.Bytes(), 0775)
+	ioutil.WriteFile("../server/messages/net.go", gobuf.Bytes(), 0775)
 }
 
 func WriteGoSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, messages map[string]Message) {
@@ -199,9 +225,9 @@ func WriteGoDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 			for i := 0; i < scopeDepth; i++ {
 				buf.WriteString("\t")
 			}
-			buf.WriteString("for i := 0; i < ")
+			buf.WriteString("for i := 0; i < int(")
 			buf.WriteString(lname)
-			buf.WriteString("; i++ {\n")
+			buf.WriteString("); i++ {\n")
 			fn := ""
 			if scopeDepth == 1 {
 				fn += "m."

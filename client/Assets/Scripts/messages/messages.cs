@@ -2,9 +2,9 @@ using System;
 using System.IO;
 using System.Text;
 
-public class LoginMessage {
-	public string Name
-	public string Password
+public class Login {
+	public string Name;
+	public string Password;
 
 	public void Serialize(BinaryWriter writer) {
 		writer.Write((int32)this.Name.length);
@@ -15,13 +15,11 @@ public class LoginMessage {
 
 	public void Deserialize(BinaryReader buffer) {
 		int l0_1 = buffer.ReadInt32();
-	temp0_1 := make([]byte, l0_1)
-	buffer.Read(temp0_1)
-	this.Name = System.Text.Encoding.UTF8.GetString(byteArray);temp0_1)
+		byte[] temp0_1 = buffer.ReadBytes(l0_1);
+		this.Name = System.Text.Encoding.UTF8.GetString(temp0_1);
 		int l1_1 = buffer.ReadInt32();
-	temp1_1 := make([]byte, l1_1)
-	buffer.Read(temp1_1)
-	this.Password = System.Text.Encoding.UTF8.GetString(byteArray);temp1_1)
+		byte[] temp1_1 = buffer.ReadBytes(l1_1);
+		this.Password = System.Text.Encoding.UTF8.GetString(temp1_1);
 	}
 }
 
@@ -35,8 +33,8 @@ public class ListGames {
 }
 
 public class ListGamesResponse {
-	public []uint32 IDs
-	public []string Names
+	public []uint32 IDs;
+	public []string Names;
 
 	public void Serialize(BinaryWriter writer) {
 		writer.Write((int32)this.IDs.length);
@@ -51,26 +49,23 @@ public class ListGamesResponse {
 	}
 
 	public void Deserialize(BinaryReader buffer) {
-		var l0_1 int;
-	binary.Read(buffer, binary.LittleEndian, &l0_1);
-	this.IDs = make([]uint32, l0_1)
-	for i := 0; i < l0_1; i++ {
+		int l0_1 = buffer.ReadInt32();
+		this.IDs = new uint32[l0_1];
+		for i := 0; i < l0_1; i++ {
 			this.IDs[i] = buffer.ReadUInt32();
-	}
-		var l1_1 int;
-	binary.Read(buffer, binary.LittleEndian, &l1_1);
-	this.Names = make([]string, l1_1)
-	for i := 0; i < l1_1; i++ {
+		}
+		int l1_1 = buffer.ReadInt32();
+		this.Names = new string[l1_1];
+		for i := 0; i < l1_1; i++ {
 			int l0_2 = buffer.ReadInt32();
-		temp0_2 := make([]byte, l0_2)
-		buffer.Read(temp0_2)
-		this.Names[i] = System.Text.Encoding.UTF8.GetString(byteArray);temp0_2)
-	}
+			byte[] temp0_2 = buffer.ReadBytes(l0_2);
+			this.Names[i] = System.Text.Encoding.UTF8.GetString(temp0_2);
+		}
 	}
 }
 
 public class CreateGame {
-	public string Name
+	public string Name;
 
 	public void Serialize(BinaryWriter writer) {
 		writer.Write((int32)this.Name.length);
@@ -79,15 +74,14 @@ public class CreateGame {
 
 	public void Deserialize(BinaryReader buffer) {
 		int l0_1 = buffer.ReadInt32();
-	temp0_1 := make([]byte, l0_1)
-	buffer.Read(temp0_1)
-	this.Name = System.Text.Encoding.UTF8.GetString(byteArray);temp0_1)
+		byte[] temp0_1 = buffer.ReadBytes(l0_1);
+		this.Name = System.Text.Encoding.UTF8.GetString(temp0_1);
 	}
 }
 
 public class JoinGame {
-	public uint32 ID
-	public uint32 CharID
+	public uint32 ID;
+	public uint32 CharID;
 
 	public void Serialize(BinaryWriter writer) {
 		writer.Write(this.ID);
@@ -101,8 +95,8 @@ public class JoinGame {
 }
 
 public class CreateCharacter {
-	public string Name
-	public byte Kit
+	public string Name;
+	public byte Kit;
 
 	public void Serialize(BinaryWriter writer) {
 		writer.Write((int32)this.Name.length);
@@ -112,15 +106,14 @@ public class CreateCharacter {
 
 	public void Deserialize(BinaryReader buffer) {
 		int l0_1 = buffer.ReadInt32();
-	temp0_1 := make([]byte, l0_1)
-	buffer.Read(temp0_1)
-	this.Name = System.Text.Encoding.UTF8.GetString(byteArray);temp0_1)
-		this.Kit = buffer.ReadByte()
+		byte[] temp0_1 = buffer.ReadBytes(l0_1);
+		this.Name = System.Text.Encoding.UTF8.GetString(temp0_1);
+		this.Kit = buffer.ReadByte();
 	}
 }
 
 public class DeleteCharacter {
-	public int32 ID
+	public int32 ID;
 
 	public void Serialize(BinaryWriter writer) {
 		writer.Write(this.ID);
@@ -132,8 +125,8 @@ public class DeleteCharacter {
 }
 
 public class MapLoaded {
-	public [][]byte Tiles
-	public []*Entity Entities
+	public [][]byte Tiles;
+	public []Entity Entities;
 
 	public void Serialize(BinaryWriter writer) {
 		writer.Write((int32)this.Tiles.length);
@@ -145,37 +138,34 @@ public class MapLoaded {
 		}
 		writer.Write((int32)this.Entities.length);
 		for ( int i=0; i < this.Entities.length; i++) {
-			this.Entities[i].Serialize(buffer)
+			this.Entities[i].Serialize(buffer);
 		}
 	}
 
 	public void Deserialize(BinaryReader buffer) {
-		var l0_1 int;
-	binary.Read(buffer, binary.LittleEndian, &l0_1);
-	this.Tiles = make([][]byte, l0_1)
-	for i := 0; i < l0_1; i++ {
-			var l0_2 int;
-		binary.Read(buffer, binary.LittleEndian, &l0_2);
-		this.Tiles[i] = make([]byte, l0_2)
-		for i := 0; i < l0_2; i++ {
-				this.Tiles[i][i] = buffer.ReadByte()
+		int l0_1 = buffer.ReadInt32();
+		this.Tiles = new []byte[l0_1];
+		for i := 0; i < l0_1; i++ {
+			int l0_2 = buffer.ReadInt32();
+			this.Tiles[i] = new byte[l0_2];
+			for i := 0; i < l0_2; i++ {
+				this.Tiles[i][i] = buffer.ReadByte();
+			}
 		}
-	}
-		var l1_1 int;
-	binary.Read(buffer, binary.LittleEndian, &l1_1);
-	this.Entities = make([]*Entity, l1_1)
-	for i := 0; i < l1_1; i++ {
-			this.Entities[i] = new(Entity)
-		this.Entities[i].Deserialize(buffer)
-	}
+		int l1_1 = buffer.ReadInt32();
+		this.Entities = new Entity[l1_1];
+		for i := 0; i < l1_1; i++ {
+			this.Entities[i] = new Entity();
+			this.Entities[i].Deserialize(buffer);
+		}
 	}
 }
 
 public class Entity {
-	public uint32 ID
-	public byte HealthPercent
-	public int32 X
-	public int32 Y
+	public uint32 ID;
+	public byte HealthPercent;
+	public int32 X;
+	public int32 Y;
 
 	public void Serialize(BinaryWriter writer) {
 		writer.Write(this.ID);
@@ -186,27 +176,27 @@ public class Entity {
 
 	public void Deserialize(BinaryReader buffer) {
 		this.ID = buffer.ReadUInt32();
-		this.HealthPercent = buffer.ReadByte()
+		this.HealthPercent = buffer.ReadByte();
 		this.X = buffer.ReadInt32();
 		this.Y = buffer.ReadInt32();
 	}
 }
 
 public class EntityMove {
-	public byte Direction
+	public byte Direction;
 
 	public void Serialize(BinaryWriter writer) {
 		writer.Write(this.Direction);
 	}
 
 	public void Deserialize(BinaryReader buffer) {
-		this.Direction = buffer.ReadByte()
+		this.Direction = buffer.ReadByte();
 	}
 }
 
 public class UseAbility {
-	public int32 AbilityID
-	public uint32 Target
+	public int32 AbilityID;
+	public uint32 Target;
 
 	public void Serialize(BinaryWriter writer) {
 		writer.Write(this.AbilityID);
@@ -220,21 +210,21 @@ public class UseAbility {
 }
 
 public class AbilityResult {
-	public *Entity Target
-	public int32 Damage
-	public byte State
+	public Entity Target;
+	public int32 Damage;
+	public byte State;
 
 	public void Serialize(BinaryWriter writer) {
-		this.Target.Serialize(buffer)
+		this.Target.Serialize(buffer);
 		writer.Write(this.Damage);
 		writer.Write(this.State);
 	}
 
 	public void Deserialize(BinaryReader buffer) {
-		this.Target = new(Entity)
-	this.Target.Deserialize(buffer)
+		this.Target = new Entity();
+		this.Target.Deserialize(buffer);
 		this.Damage = buffer.ReadInt32();
-		this.State = buffer.ReadByte()
+		this.State = buffer.ReadByte();
 	}
 }
 

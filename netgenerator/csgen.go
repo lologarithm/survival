@@ -17,9 +17,10 @@ func WriteCS(messages []Message, messageMap map[string]Message) {
 		gobuf.WriteString(" {")
 		for _, f := range msg.Fields {
 			gobuf.WriteString("\n\tpublic ")
-			gobuf.WriteString(strings.Replace(f.Type, "*", "", 0))
+			gobuf.WriteString(strings.Replace(f.Type, "*", "", -1))
 			gobuf.WriteString(" ")
 			gobuf.WriteString(f.Name)
+			gobuf.WriteString(";")
 		}
 		gobuf.WriteString("\n\n")
 
@@ -99,7 +100,7 @@ func WriteCSSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, message
 				buf.WriteString("this.")
 			}
 			buf.WriteString(f.Name)
-			buf.WriteString(".Serialize(buffer)\n")
+			buf.WriteString(".Serialize(buffer);\n")
 		}
 	}
 }
@@ -114,7 +115,7 @@ func WriteCSDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 			buf.WriteString("this.")
 		}
 		buf.WriteString(f.Name)
-		buf.WriteString(" = buffer.ReadByte()\n")
+		buf.WriteString(" = buffer.ReadByte();\n")
 	case "int16", "int32", "int64", "uint16", "uint32", "uint64":
 		if scopeDepth == 1 {
 			buf.WriteString("this.")
@@ -135,60 +136,49 @@ func WriteCSDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 		buf.WriteString("int ")
 		buf.WriteString(lname)
 		buf.WriteString(" = buffer.ReadInt32();\n")
-		for i := 0; i < scopeDepth; i++ {
+		for i := 0; i < scopeDepth+1; i++ {
 			buf.WriteString("\t")
 		}
+		buf.WriteString("byte[] ")
 		tmpname := "temp" + strconv.Itoa(f.Order) + "_" + strconv.Itoa(scopeDepth)
 		buf.WriteString(tmpname)
-		buf.WriteString(" := make([]byte, ")
+		buf.WriteString(" = buffer.ReadBytes(")
 		buf.WriteString(lname)
-		buf.WriteString(")\n")
-		for i := 0; i < scopeDepth; i++ {
-			buf.WriteString("\t")
-		}
-		buf.WriteString("buffer.Read(")
-		buf.WriteString(tmpname)
-		buf.WriteString(")\n")
-		for i := 0; i < scopeDepth; i++ {
+		buf.WriteString(");\n")
+		for i := 0; i < scopeDepth+1; i++ {
 			buf.WriteString("\t")
 		}
 		if scopeDepth == 1 {
 			buf.WriteString("this.")
 		}
 		buf.WriteString(f.Name)
-		buf.WriteString(" = System.Text.Encoding.UTF8.GetString(byteArray);")
+		buf.WriteString(" = System.Text.Encoding.UTF8.GetString(")
 		buf.WriteString(tmpname)
-		buf.WriteString(")\n")
+		buf.WriteString(");\n")
 	default:
 		if f.Type[:2] == "[]" {
 			// Get len of array
 			lname := "l" + strconv.Itoa(f.Order) + "_" + strconv.Itoa(scopeDepth)
-			buf.WriteString("var ")
+			buf.WriteString("int ")
 			buf.WriteString(lname)
-			buf.WriteString(" int;\n")
-			for i := 0; i < scopeDepth; i++ {
+			buf.WriteString(" = buffer.ReadInt32();\n")
+			for i := 0; i < scopeDepth+1; i++ {
 				buf.WriteString("\t")
 			}
-			buf.WriteString("binary.Read(buffer, binary.LittleEndian, &")
-			buf.WriteString(lname)
-			buf.WriteString(");\n")
 
 			// Create array variable
-			for i := 0; i < scopeDepth; i++ {
-				buf.WriteString("\t")
-			}
 			if scopeDepth == 1 {
 				buf.WriteString("this.")
 			}
 			buf.WriteString(f.Name)
-			buf.WriteString(" = make([]")
-			buf.WriteString(f.Type[2:])
-			buf.WriteString(", ")
+			buf.WriteString(" = new ")
+			buf.WriteString(strings.Replace(f.Type[2:], "*", "", -1))
+			buf.WriteString("[")
 			buf.WriteString(lname)
-			buf.WriteString(")\n")
+			buf.WriteString("];\n")
 
 			// Read each var into the array in loop
-			for i := 0; i < scopeDepth; i++ {
+			for i := 0; i < scopeDepth+1; i++ {
 				buf.WriteString("\t")
 			}
 			buf.WriteString("for i := 0; i < ")
@@ -200,7 +190,7 @@ func WriteCSDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 			}
 			fn += f.Name + "[i]"
 			WriteCSDeserial(MessageField{Name: fn, Type: f.Type[2:]}, scopeDepth+1, buf, messages)
-			for i := 0; i < scopeDepth; i++ {
+			for i := 0; i < scopeDepth+1; i++ {
 				buf.WriteString("\t")
 			}
 			buf.WriteString("}\n")
@@ -210,18 +200,18 @@ func WriteCSDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 				buf.WriteString("this.")
 			}
 			buf.WriteString(f.Name)
-			buf.WriteString(" = new(")
+			buf.WriteString(" = new ")
 			buf.WriteString(f.Type[1:])
-			buf.WriteString(")\n")
+			buf.WriteString("();\n")
 
-			for i := 0; i < scopeDepth; i++ {
+			for i := 0; i < scopeDepth+1; i++ {
 				buf.WriteString("\t")
 			}
 			if scopeDepth == 1 {
 				buf.WriteString("this.")
 			}
 			buf.WriteString(f.Name)
-			buf.WriteString(".Deserialize(buffer)\n")
+			buf.WriteString(".Deserialize(buffer);\n")
 		}
 	}
 

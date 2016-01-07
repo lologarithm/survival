@@ -5,19 +5,78 @@ import (
 	"encoding/binary"
 )
 
-type LoginMessage struct {
-	Name string
+type Net interface {
+	Serialize(*bytes.Buffer)
+	Deserialize(*bytes.Buffer)
+}
+
+type MessageType byte
+
+const (
+	UnknownMsgType MessageType = iota
+	LoginMsgType
+	ListGamesMsgType
+	ListGamesResponseMsgType
+	CreateGameMsgType
+	JoinGameMsgType
+	CreateCharacterMsgType
+	DeleteCharacterMsgType
+	MapLoadedMsgType
+	EntityMsgType
+	EntityMoveMsgType
+	UseAbilityMsgType
+	AbilityResultMsgType
+	EndGameMsgType
+)
+
+// ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.
+func ParseNetMessage(msgFrame Frame, content []byte) Net {
+	var msg Net
+	switch msgFrame.MsgType {
+	case LoginMsgType:
+		msg = &Login{}
+	case ListGamesMsgType:
+		msg = &ListGames{}
+	case ListGamesResponseMsgType:
+		msg = &ListGamesResponse{}
+	case CreateGameMsgType:
+		msg = &CreateGame{}
+	case JoinGameMsgType:
+		msg = &JoinGame{}
+	case CreateCharacterMsgType:
+		msg = &CreateCharacter{}
+	case DeleteCharacterMsgType:
+		msg = &DeleteCharacter{}
+	case MapLoadedMsgType:
+		msg = &MapLoaded{}
+	case EntityMsgType:
+		msg = &Entity{}
+	case EntityMoveMsgType:
+		msg = &EntityMove{}
+	case UseAbilityMsgType:
+		msg = &UseAbility{}
+	case AbilityResultMsgType:
+		msg = &AbilityResult{}
+	case EndGameMsgType:
+		msg = &EndGame{}
+	}
+	msg.Deserialize(bytes.NewBuffer(content))
+	return msg
+}
+
+type Login struct {
+	Name     string
 	Password string
 }
 
-func (m *LoginMessage) Serialize(buffer *bytes.Buffer) {
+func (m *Login) Serialize(buffer *bytes.Buffer) {
 	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
 	buffer.WriteString(m.Name)
 	binary.Write(buffer, binary.LittleEndian, int32(len(m.Password)))
 	buffer.WriteString(m.Password)
 }
 
-func (m *LoginMessage) Deserialize(buffer *bytes.Buffer) {
+func (m *Login) Deserialize(buffer *bytes.Buffer) {
 	var l0_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l0_1)
 	temp0_1 := make([]byte, l0_1)
@@ -40,7 +99,7 @@ func (m *ListGames) Deserialize(buffer *bytes.Buffer) {
 }
 
 type ListGamesResponse struct {
-	IDs []uint32
+	IDs   []uint32
 	Names []string
 }
 
@@ -60,13 +119,13 @@ func (m *ListGamesResponse) Deserialize(buffer *bytes.Buffer) {
 	var l0_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l0_1)
 	m.IDs = make([]uint32, l0_1)
-	for i := 0; i < l0_1; i++ {
+	for i := 0; i < int(l0_1); i++ {
 		binary.Read(buffer, binary.LittleEndian, &m.IDs[i])
 	}
 	var l1_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l1_1)
 	m.Names = make([]string, l1_1)
-	for i := 0; i < l1_1; i++ {
+	for i := 0; i < int(l1_1); i++ {
 		var l0_2 int32
 		binary.Read(buffer, binary.LittleEndian, &l0_2)
 		temp0_2 := make([]byte, l0_2)
@@ -93,7 +152,7 @@ func (m *CreateGame) Deserialize(buffer *bytes.Buffer) {
 }
 
 type JoinGame struct {
-	ID uint32
+	ID     uint32
 	CharID uint32
 }
 
@@ -109,7 +168,7 @@ func (m *JoinGame) Deserialize(buffer *bytes.Buffer) {
 
 type CreateCharacter struct {
 	Name string
-	Kit byte
+	Kit  byte
 }
 
 func (m *CreateCharacter) Serialize(buffer *bytes.Buffer) {
@@ -140,7 +199,7 @@ func (m *DeleteCharacter) Deserialize(buffer *bytes.Buffer) {
 }
 
 type MapLoaded struct {
-	Tiles [][]byte
+	Tiles    [][]byte
 	Entities []*Entity
 }
 
@@ -162,28 +221,28 @@ func (m *MapLoaded) Deserialize(buffer *bytes.Buffer) {
 	var l0_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l0_1)
 	m.Tiles = make([][]byte, l0_1)
-	for i := 0; i < l0_1; i++ {
+	for i := 0; i < int(l0_1); i++ {
 		var l0_2 int32
 		binary.Read(buffer, binary.LittleEndian, &l0_2)
 		m.Tiles[i] = make([]byte, l0_2)
-		for i := 0; i < l0_2; i++ {
+		for i := 0; i < int(l0_2); i++ {
 			m.Tiles[i][i], _ = buffer.ReadByte()
 		}
 	}
 	var l1_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l1_1)
 	m.Entities = make([]*Entity, l1_1)
-	for i := 0; i < l1_1; i++ {
+	for i := 0; i < int(l1_1); i++ {
 		m.Entities[i] = new(Entity)
 		m.Entities[i].Deserialize(buffer)
 	}
 }
 
 type Entity struct {
-	ID uint32
+	ID            uint32
 	HealthPercent byte
-	X int32
-	Y int32
+	X             int32
+	Y             int32
 }
 
 func (m *Entity) Serialize(buffer *bytes.Buffer) {
@@ -214,7 +273,7 @@ func (m *EntityMove) Deserialize(buffer *bytes.Buffer) {
 
 type UseAbility struct {
 	AbilityID int32
-	Target uint32
+	Target    uint32
 }
 
 func (m *UseAbility) Serialize(buffer *bytes.Buffer) {
@@ -230,7 +289,7 @@ func (m *UseAbility) Deserialize(buffer *bytes.Buffer) {
 type AbilityResult struct {
 	Target *Entity
 	Damage int32
-	State byte
+	State  byte
 }
 
 func (m *AbilityResult) Serialize(buffer *bytes.Buffer) {
@@ -254,4 +313,3 @@ func (m *EndGame) Serialize(buffer *bytes.Buffer) {
 
 func (m *EndGame) Deserialize(buffer *bytes.Buffer) {
 }
-

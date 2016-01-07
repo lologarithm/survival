@@ -1,5 +1,5 @@
 
-class LoginMessage {
+class Login {
  Name string
  Password string
 }

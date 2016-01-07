@@ -1,8 +1,9 @@
 package server
 
 import (
-	"log"
 	"net"
+
+	"github.com/lologarithm/survival/server/messages"
 )
 
 // TODO: Track 'reliable' messages. Decide which need to be resent.
@@ -23,7 +24,7 @@ type Client struct {
 // ProcessBytes accepts raw bytes from a socket and turns them into NetMessage objects and then
 // later into GameMessages. These are passed into the GameManager. This function also
 // accepts outgoing messages from the GameManager to the client.
-func (client *Client) ProcessBytes(toGameManager chan GameMessage, toClient chan NetMessage, disconClient chan Client) {
+func (client *Client) ProcessBytes(toGameManager chan GameMessage, toClient chan OutgoingMessage, disconClient chan Client) {
 	client.Alive = true
 	for client.Alive {
 		select {
@@ -32,27 +33,17 @@ func (client *Client) ProcessBytes(toGameManager chan GameMessage, toClient chan
 				break
 			} else {
 				client.buffer = append(client.buffer, bytes...)
-				msgFrame, ok := ParseFrame(client.buffer)
+				msgFrame, ok := messages.ParseFrame(client.buffer)
 				// Only try to parse if we have collected enough bytes.
-				if ok && frameLen+int(msgFrame.length) <= len(client.buffer) {
-					gameMsg := ParseNetMessage(msgFrame, client.buffer[frameLen:frameLen+int(msgFrame.length)])
-					toGameManager <- gameMsg
+				if ok && messages.FrameLen+int(msgFrame.Length) <= len(client.buffer) {
+					netMsg := messages.ParseNetMessage(msgFrame, client.buffer[messages.FrameLen:messages.FrameLen+int(msgFrame.Length)])
+					toGameManager <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
 					// Remove the used bytes from the buffer.
-					newBuffer := make([]byte, len(client.buffer)-frameLen+int(msgFrame.length))
-					copy(newBuffer, client.buffer[frameLen+int(msgFrame.length):])
+					newBuffer := make([]byte, len(client.buffer)-messages.FrameLen+int(msgFrame.Length))
+					copy(newBuffer, client.buffer[messages.FrameLen+int(msgFrame.Length):])
 					client.buffer = newBuffer
 				}
 			}
 		}
 	}
-}
-
-// ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a
-// GameMessage that the GameManager can use.
-func ParseNetMessage(msgFrame MessageFrame, content []byte) GameMessage {
-	log.Printf("Parsing message: %v", msgFrame)
-	switch msgFrame.msgType {
-
-	}
-	return nil
 }
