@@ -35,7 +35,7 @@ func WriteCS(messages []Message, messageMap map[string]Message) {
 		gobuf.WriteString("\t}\n}\n\n")
 
 	}
-	ioutil.WriteFile("../client/Scripts/messages/messages.cs", gobuf.Bytes(), 0775)
+	ioutil.WriteFile("../client/Assets/Scripts/messages/messages.cs", gobuf.Bytes(), 0775)
 }
 
 func WriteCSSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, messages map[string]Message) {
@@ -51,7 +51,7 @@ func WriteCSSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, message
 		buf.WriteString(f.Name)
 		buf.WriteString(");\n")
 	case "string":
-		buf.WriteString("writer.Write(")
+		buf.WriteString("writer.Write((int32)")
 		if scopeDepth == 1 {
 			buf.WriteString("this.")
 		}
@@ -69,7 +69,7 @@ func WriteCSSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, message
 	default:
 		if f.Type[:2] == "[]" {
 			// Array!
-			buf.WriteString("writer.Write(")
+			buf.WriteString("writer.Write((int32)")
 			if scopeDepth == 1 {
 				buf.WriteString("this.")
 			}
@@ -130,18 +130,11 @@ func WriteCSDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 		buf.WriteString(" = buffer.")
 		buf.WriteString(funcName)
 		buf.WriteString("();\n")
-
 	case "string":
 		lname := "l" + strconv.Itoa(f.Order) + "_" + strconv.Itoa(scopeDepth)
-		buf.WriteString("var ")
+		buf.WriteString("int ")
 		buf.WriteString(lname)
-		buf.WriteString(" int\n")
-		for i := 0; i < scopeDepth; i++ {
-			buf.WriteString("\t")
-		}
-		buf.WriteString("binary.Read(buffer, binary.LittleEndian, &")
-		buf.WriteString(lname)
-		buf.WriteString(")\n")
+		buf.WriteString(" = buffer.ReadInt32();\n")
 		for i := 0; i < scopeDepth; i++ {
 			buf.WriteString("\t")
 		}
@@ -163,7 +156,7 @@ func WriteCSDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 			buf.WriteString("this.")
 		}
 		buf.WriteString(f.Name)
-		buf.WriteString(" = string(")
+		buf.WriteString(" = System.Text.Encoding.UTF8.GetString(byteArray);")
 		buf.WriteString(tmpname)
 		buf.WriteString(")\n")
 	default:
@@ -172,13 +165,13 @@ func WriteCSDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 			lname := "l" + strconv.Itoa(f.Order) + "_" + strconv.Itoa(scopeDepth)
 			buf.WriteString("var ")
 			buf.WriteString(lname)
-			buf.WriteString(" int\n")
+			buf.WriteString(" int;\n")
 			for i := 0; i < scopeDepth; i++ {
 				buf.WriteString("\t")
 			}
 			buf.WriteString("binary.Read(buffer, binary.LittleEndian, &")
 			buf.WriteString(lname)
-			buf.WriteString(")\n")
+			buf.WriteString(");\n")
 
 			// Create array variable
 			for i := 0; i < scopeDepth; i++ {

@@ -11,19 +11,19 @@ type LoginMessage struct {
 }
 
 func (m *LoginMessage) Serialize(buffer *bytes.Buffer) {
-	binary.Write(buffer, binary.LittleEndian, len(m.Name))
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
 	buffer.WriteString(m.Name)
-	binary.Write(buffer, binary.LittleEndian, len(m.Password))
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Password)))
 	buffer.WriteString(m.Password)
 }
 
 func (m *LoginMessage) Deserialize(buffer *bytes.Buffer) {
-	var l0_1 int
+	var l0_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l0_1)
 	temp0_1 := make([]byte, l0_1)
 	buffer.Read(temp0_1)
 	m.Name = string(temp0_1)
-	var l1_1 int
+	var l1_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l1_1)
 	temp1_1 := make([]byte, l1_1)
 	buffer.Read(temp1_1)
@@ -45,29 +45,29 @@ type ListGamesResponse struct {
 }
 
 func (m *ListGamesResponse) Serialize(buffer *bytes.Buffer) {
-	binary.Write(buffer, binary.LittleEndian, len(m.IDs))
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.IDs)))
 	for _, v2 := range m.IDs {
 		binary.Write(buffer, binary.LittleEndian, v2)
 	}
-	binary.Write(buffer, binary.LittleEndian, len(m.Names))
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Names)))
 	for _, v2 := range m.Names {
-		binary.Write(buffer, binary.LittleEndian, len(v2))
+		binary.Write(buffer, binary.LittleEndian, int32(len(v2)))
 		buffer.WriteString(v2)
 	}
 }
 
 func (m *ListGamesResponse) Deserialize(buffer *bytes.Buffer) {
-	var l0_1 int
+	var l0_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l0_1)
 	m.IDs = make([]uint32, l0_1)
 	for i := 0; i < l0_1; i++ {
 		binary.Read(buffer, binary.LittleEndian, &m.IDs[i])
 	}
-	var l1_1 int
+	var l1_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l1_1)
 	m.Names = make([]string, l1_1)
 	for i := 0; i < l1_1; i++ {
-		var l0_2 int
+		var l0_2 int32
 		binary.Read(buffer, binary.LittleEndian, &l0_2)
 		temp0_2 := make([]byte, l0_2)
 		buffer.Read(temp0_2)
@@ -80,12 +80,12 @@ type CreateGame struct {
 }
 
 func (m *CreateGame) Serialize(buffer *bytes.Buffer) {
-	binary.Write(buffer, binary.LittleEndian, len(m.Name))
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
 	buffer.WriteString(m.Name)
 }
 
 func (m *CreateGame) Deserialize(buffer *bytes.Buffer) {
-	var l0_1 int
+	var l0_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l0_1)
 	temp0_1 := make([]byte, l0_1)
 	buffer.Read(temp0_1)
@@ -113,13 +113,13 @@ type CreateCharacter struct {
 }
 
 func (m *CreateCharacter) Serialize(buffer *bytes.Buffer) {
-	binary.Write(buffer, binary.LittleEndian, len(m.Name))
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
 	buffer.WriteString(m.Name)
 	buffer.WriteByte(m.Kit)
 }
 
 func (m *CreateCharacter) Deserialize(buffer *bytes.Buffer) {
-	var l0_1 int
+	var l0_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l0_1)
 	temp0_1 := make([]byte, l0_1)
 	buffer.Read(temp0_1)
@@ -145,32 +145,32 @@ type MapLoaded struct {
 }
 
 func (m *MapLoaded) Serialize(buffer *bytes.Buffer) {
-	binary.Write(buffer, binary.LittleEndian, len(m.Tiles))
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Tiles)))
 	for _, v2 := range m.Tiles {
-		binary.Write(buffer, binary.LittleEndian, len(v2))
+		binary.Write(buffer, binary.LittleEndian, int32(len(v2)))
 		for _, v3 := range v2 {
 			buffer.WriteByte(v3)
 		}
 	}
-	binary.Write(buffer, binary.LittleEndian, len(m.Entities))
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Entities)))
 	for _, v2 := range m.Entities {
 		v2.Serialize(buffer)
 	}
 }
 
 func (m *MapLoaded) Deserialize(buffer *bytes.Buffer) {
-	var l0_1 int
+	var l0_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l0_1)
 	m.Tiles = make([][]byte, l0_1)
 	for i := 0; i < l0_1; i++ {
-		var l0_2 int
+		var l0_2 int32
 		binary.Read(buffer, binary.LittleEndian, &l0_2)
 		m.Tiles[i] = make([]byte, l0_2)
 		for i := 0; i < l0_2; i++ {
 			m.Tiles[i][i], _ = buffer.ReadByte()
 		}
 	}
-	var l1_1 int
+	var l1_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l1_1)
 	m.Entities = make([]*Entity, l1_1)
 	for i := 0; i < l1_1; i++ {

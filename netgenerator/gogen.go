@@ -61,12 +61,12 @@ func WriteGoSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, message
 		buf.WriteString(f.Name)
 		buf.WriteString(")\n")
 	case "string":
-		buf.WriteString("binary.Write(buffer, binary.LittleEndian, len(")
+		buf.WriteString("binary.Write(buffer, binary.LittleEndian, int32(len(")
 		if scopeDepth == 1 {
 			buf.WriteString("m.")
 		}
 		buf.WriteString(f.Name)
-		buf.WriteString("))\n")
+		buf.WriteString(")))\n")
 		for i := 0; i < scopeDepth; i++ {
 			buf.WriteString("\t")
 		}
@@ -79,13 +79,13 @@ func WriteGoSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, message
 	default:
 		if f.Type[:2] == "[]" {
 			// Array!
-			buf.WriteString("binary.Write(buffer, binary.LittleEndian, len(")
+			buf.WriteString("binary.Write(buffer, binary.LittleEndian, int32(len(")
 			if scopeDepth == 1 {
 				buf.WriteString("m.")
 			}
 
 			buf.WriteString(f.Name)
-			buf.WriteString("))\n")
+			buf.WriteString(")))\n")
 			for i := 0; i < scopeDepth; i++ {
 				buf.WriteString("\t")
 			}
@@ -136,7 +136,7 @@ func WriteGoDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 		lname := "l" + strconv.Itoa(f.Order) + "_" + strconv.Itoa(scopeDepth)
 		buf.WriteString("var ")
 		buf.WriteString(lname)
-		buf.WriteString(" int\n")
+		buf.WriteString(" int32\n")
 		for i := 0; i < scopeDepth; i++ {
 			buf.WriteString("\t")
 		}
@@ -173,7 +173,7 @@ func WriteGoDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 			lname := "l" + strconv.Itoa(f.Order) + "_" + strconv.Itoa(scopeDepth)
 			buf.WriteString("var ")
 			buf.WriteString(lname)
-			buf.WriteString(" int\n")
+			buf.WriteString(" int32\n")
 			for i := 0; i < scopeDepth; i++ {
 				buf.WriteString("\t")
 			}
