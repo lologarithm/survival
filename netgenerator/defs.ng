@@ -1,0 +1,61 @@
+
+class LoginMessage {
+ Name string
+ Password string
+}
+
+class ListGames {
+}
+
+class ListGamesResponse {
+ IDs []uint32
+ Names []string
+}
+
+class CreateGame {
+ Name string
+}
+
+class JoinGame {
+ ID uint32
+ CharID uint32
+}
+
+class CreateCharacter {
+ Name string
+ Kit byte
+}
+
+class DeleteCharacter {
+ ID int32
+}
+
+class MapLoaded {
+ Tiles [][]byte
+ Entities []*Entity
+}
+
+class Entity {
+ ID uint32
+ HealthPercent byte
+ X int32
+ Y int32
+}
+
+class EntityMove {
+ Direction byte
+}
+
+class UseAbility {
+ AbilityID int32
+ Target uint32
+}
+
+class AbilityResult {
+ Target *Entity
+ Damage int32
+ State byte
+}
+
+class EndGame {
+}
