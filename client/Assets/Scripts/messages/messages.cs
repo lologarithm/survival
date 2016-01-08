@@ -7,7 +7,7 @@ interface INet {
 	void Deserialize(BinaryReader buffer);
 }
 
-enum MsgType : byte {Unknown=0,Login=1,LoginResponse=2,ListGames=3,ListGamesResponse=4,CreateGame=5,JoinGame=6,CreateCharacter=7,DeleteCharacter=8,MapLoaded=9,Entity=10,EntityMove=11,UseAbility=12,AbilityResult=13,EndGame=14}
+enum MsgType : byte {Unknown=0,CreateAccount=1,CreateAccountResponse=2,Login=3,LoginResponse=4,CreateCharacter=5,DeleteCharacter=6,Character=7,ListGames=8,ListGamesResponse=9,CreateGame=10,JoinGame=11,MapLoaded=12,Entity=13,EntityMove=14,UseAbility=15,AbilityResult=16,EndGame=17}
 
 static class Messages {
 // ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.
@@ -16,11 +16,26 @@ public static INet Parse(byte msgType, byte[] content) {
 	MsgType mt = (MsgType)msgType;
 	switch (mt)
 	{
+		case MsgType.CreateAccount:
+			msg = new CreateAccount();
+			break;
+		case MsgType.CreateAccountResponse:
+			msg = new CreateAccountResponse();
+			break;
 		case MsgType.Login:
 			msg = new Login();
 			break;
 		case MsgType.LoginResponse:
 			msg = new LoginResponse();
+			break;
+		case MsgType.CreateCharacter:
+			msg = new CreateCharacter();
+			break;
+		case MsgType.DeleteCharacter:
+			msg = new DeleteCharacter();
+			break;
+		case MsgType.Character:
+			msg = new Character();
 			break;
 		case MsgType.ListGames:
 			msg = new ListGames();
@@ -33,12 +48,6 @@ public static INet Parse(byte msgType, byte[] content) {
 			break;
 		case MsgType.JoinGame:
 			msg = new JoinGame();
-			break;
-		case MsgType.CreateCharacter:
-			msg = new CreateCharacter();
-			break;
-		case MsgType.DeleteCharacter:
-			msg = new DeleteCharacter();
 			break;
 		case MsgType.MapLoaded:
 			msg = new MapLoaded();
@@ -65,6 +74,45 @@ public static INet Parse(byte msgType, byte[] content) {
 }
 }
 
+public class CreateAccount : INet {
+	public string Name;
+	public string Password;
+
+	public void Serialize(BinaryWriter buffer) {
+		buffer.Write((Int32)this.Name.Length);
+		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
+		buffer.Write((Int32)this.Password.Length);
+		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Password));
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+		int l0_1 = buffer.ReadInt32();
+		byte[] temp0_1 = buffer.ReadBytes(l0_1);
+		this.Name = System.Text.Encoding.UTF8.GetString(temp0_1);
+		int l1_1 = buffer.ReadInt32();
+		byte[] temp1_1 = buffer.ReadBytes(l1_1);
+		this.Password = System.Text.Encoding.UTF8.GetString(temp1_1);
+	}
+}
+
+public class CreateAccountResponse : INet {
+	public UInt32 AccountID;
+	public string Name;
+
+	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.AccountID);
+		buffer.Write((Int32)this.Name.Length);
+		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+		this.AccountID = buffer.ReadUInt32();
+		int l1_1 = buffer.ReadInt32();
+		byte[] temp1_1 = buffer.ReadBytes(l1_1);
+		this.Name = System.Text.Encoding.UTF8.GetString(temp1_1);
+	}
+}
+
 public class Login : INet {
 	public string Name;
 	public string Password;
@@ -88,13 +136,84 @@ public class Login : INet {
 
 public class LoginResponse : INet {
 	public byte Success;
+	public string Name;
+	public UInt32 AccountID;
+	public Character[] Characters;
 
 	public void Serialize(BinaryWriter buffer) {
 		buffer.Write(this.Success);
+		buffer.Write((Int32)this.Name.Length);
+		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
+		buffer.Write(this.AccountID);
+		buffer.Write((Int32)this.Characters.Length);
+		for (int v2 = 0; v2 < this.Characters.Length; v2++) {
+			this.Characters[v2].Serialize(buffer);
+		}
 	}
 
 	public void Deserialize(BinaryReader buffer) {
 		this.Success = buffer.ReadByte();
+		int l1_1 = buffer.ReadInt32();
+		byte[] temp1_1 = buffer.ReadBytes(l1_1);
+		this.Name = System.Text.Encoding.UTF8.GetString(temp1_1);
+		this.AccountID = buffer.ReadUInt32();
+		int l3_1 = buffer.ReadInt32();
+		this.Characters = new Character[l3_1];
+		for (int v2 = 0; v2 < l3_1; v2++) {
+			this.Characters[v2] = new Character();
+			this.Characters[v2].Deserialize(buffer);
+		}
+	}
+}
+
+public class CreateCharacter : INet {
+	public UInt32 AccountID;
+	public string Name;
+	public byte Kit;
+
+	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.AccountID);
+		buffer.Write((Int32)this.Name.Length);
+		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
+		buffer.Write(this.Kit);
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+		this.AccountID = buffer.ReadUInt32();
+		int l1_1 = buffer.ReadInt32();
+		byte[] temp1_1 = buffer.ReadBytes(l1_1);
+		this.Name = System.Text.Encoding.UTF8.GetString(temp1_1);
+		this.Kit = buffer.ReadByte();
+	}
+}
+
+public class DeleteCharacter : INet {
+	public UInt32 ID;
+
+	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.ID);
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+		this.ID = buffer.ReadUInt32();
+	}
+}
+
+public class Character : INet {
+	public UInt32 ID;
+	public string Name;
+
+	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.ID);
+		buffer.Write((Int32)this.Name.Length);
+		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+		this.ID = buffer.ReadUInt32();
+		int l1_1 = buffer.ReadInt32();
+		byte[] temp1_1 = buffer.ReadBytes(l1_1);
+		this.Name = System.Text.Encoding.UTF8.GetString(temp1_1);
 	}
 }
 
@@ -166,36 +285,6 @@ public class JoinGame : INet {
 	public void Deserialize(BinaryReader buffer) {
 		this.ID = buffer.ReadUInt32();
 		this.CharID = buffer.ReadUInt32();
-	}
-}
-
-public class CreateCharacter : INet {
-	public string Name;
-	public byte Kit;
-
-	public void Serialize(BinaryWriter buffer) {
-		buffer.Write((Int32)this.Name.Length);
-		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
-		buffer.Write(this.Kit);
-	}
-
-	public void Deserialize(BinaryReader buffer) {
-		int l0_1 = buffer.ReadInt32();
-		byte[] temp0_1 = buffer.ReadBytes(l0_1);
-		this.Name = System.Text.Encoding.UTF8.GetString(temp0_1);
-		this.Kit = buffer.ReadByte();
-	}
-}
-
-public class DeleteCharacter : INet {
-	public Int32 ID;
-
-	public void Serialize(BinaryWriter buffer) {
-		buffer.Write(this.ID);
-	}
-
-	public void Deserialize(BinaryReader buffer) {
-		this.ID = buffer.ReadInt32();
 	}
 }
 

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"log"
 	"net"
 
 	"github.com/lologarithm/survival/server/messages"
@@ -17,7 +16,6 @@ type Client struct {
 	toServerManager chan GameMessage // Messages to server manager to join a game
 	toGameManager   chan GameMessage // Messages to the game the client is connected to.
 
-	// User  *Client // User attached to this network client
 	Seq   uint16
 	Alive bool
 }
@@ -44,7 +42,6 @@ func (client *Client) ProcessBytes(toGameManager chan GameMessage, toClient chan
 				}
 				// Only try to parse if we have collected enough bytes.
 				if ok && numMsgBytes <= len(client.buffer) {
-					log.Printf("Bytes: %v", client.buffer[:numMsgBytes])
 					netMsg := messages.ParseNetMessage(msgFrame, client.buffer[messages.FrameLen:numMsgBytes])
 					toGameManager <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
 					// Remove the used bytes from the buffer.

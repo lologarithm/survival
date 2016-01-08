@@ -15,14 +15,17 @@ type MessageType byte
 
 const (
 	UnknownMsgType MessageType = iota
+	CreateAccountMsgType
+	CreateAccountResponseMsgType
 	LoginMsgType
 	LoginResponseMsgType
+	CreateCharacterMsgType
+	DeleteCharacterMsgType
+	CharacterMsgType
 	ListGamesMsgType
 	ListGamesResponseMsgType
 	CreateGameMsgType
 	JoinGameMsgType
-	CreateCharacterMsgType
-	DeleteCharacterMsgType
 	MapLoadedMsgType
 	EntityMsgType
 	EntityMoveMsgType
@@ -35,10 +38,20 @@ const (
 func ParseNetMessage(msgFrame Frame, content []byte) Net {
 	var msg Net
 	switch msgFrame.MsgType {
+	case CreateAccountMsgType:
+		msg = &CreateAccount{}
+	case CreateAccountResponseMsgType:
+		msg = &CreateAccountResponse{}
 	case LoginMsgType:
 		msg = &Login{}
 	case LoginResponseMsgType:
 		msg = &LoginResponse{}
+	case CreateCharacterMsgType:
+		msg = &CreateCharacter{}
+	case DeleteCharacterMsgType:
+		msg = &DeleteCharacter{}
+	case CharacterMsgType:
+		msg = &Character{}
 	case ListGamesMsgType:
 		msg = &ListGames{}
 	case ListGamesResponseMsgType:
@@ -47,10 +60,6 @@ func ParseNetMessage(msgFrame Frame, content []byte) Net {
 		msg = &CreateGame{}
 	case JoinGameMsgType:
 		msg = &JoinGame{}
-	case CreateCharacterMsgType:
-		msg = &CreateCharacter{}
-	case DeleteCharacterMsgType:
-		msg = &DeleteCharacter{}
 	case MapLoadedMsgType:
 		msg = &MapLoaded{}
 	case EntityMsgType:
@@ -68,6 +77,51 @@ func ParseNetMessage(msgFrame Frame, content []byte) Net {
 	}
 	msg.Deserialize(bytes.NewBuffer(content))
 	return msg
+}
+
+type CreateAccount struct {
+	Name string
+	Password string
+}
+
+func (m *CreateAccount) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
+	buffer.WriteString(m.Name)
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Password)))
+	buffer.WriteString(m.Password)
+}
+
+func (m *CreateAccount) Deserialize(buffer *bytes.Buffer) {
+	var l0_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l0_1)
+	temp0_1 := make([]byte, l0_1)
+	buffer.Read(temp0_1)
+	m.Name = string(temp0_1)
+	var l1_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l1_1)
+	temp1_1 := make([]byte, l1_1)
+	buffer.Read(temp1_1)
+	m.Password = string(temp1_1)
+}
+
+type CreateAccountResponse struct {
+	AccountID uint32
+	Name string
+}
+
+func (m *CreateAccountResponse) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, m.AccountID)
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
+	buffer.WriteString(m.Name)
+}
+
+func (m *CreateAccountResponse) Deserialize(buffer *bytes.Buffer) {
+	binary.Read(buffer, binary.LittleEndian, &m.AccountID)
+	var l1_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l1_1)
+	temp1_1 := make([]byte, l1_1)
+	buffer.Read(temp1_1)
+	m.Name = string(temp1_1)
 }
 
 type Login struct {
@@ -97,14 +151,92 @@ func (m *Login) Deserialize(buffer *bytes.Buffer) {
 
 type LoginResponse struct {
 	Success byte
+	Name string
+	AccountID uint32
+	Characters []*Character
 }
 
 func (m *LoginResponse) Serialize(buffer *bytes.Buffer) {
 	buffer.WriteByte(m.Success)
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
+	buffer.WriteString(m.Name)
+	binary.Write(buffer, binary.LittleEndian, m.AccountID)
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Characters)))
+	for _, v2 := range m.Characters {
+		v2.Serialize(buffer)
+	}
 }
 
 func (m *LoginResponse) Deserialize(buffer *bytes.Buffer) {
 	m.Success, _ = buffer.ReadByte()
+	var l1_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l1_1)
+	temp1_1 := make([]byte, l1_1)
+	buffer.Read(temp1_1)
+	m.Name = string(temp1_1)
+	binary.Read(buffer, binary.LittleEndian, &m.AccountID)
+	var l3_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l3_1)
+	m.Characters = make([]*Character, l3_1)
+	for i := 0; i < int(l3_1); i++ {
+		m.Characters[i] = new(Character)
+		m.Characters[i].Deserialize(buffer)
+	}
+}
+
+type CreateCharacter struct {
+	AccountID uint32
+	Name string
+	Kit byte
+}
+
+func (m *CreateCharacter) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, m.AccountID)
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
+	buffer.WriteString(m.Name)
+	buffer.WriteByte(m.Kit)
+}
+
+func (m *CreateCharacter) Deserialize(buffer *bytes.Buffer) {
+	binary.Read(buffer, binary.LittleEndian, &m.AccountID)
+	var l1_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l1_1)
+	temp1_1 := make([]byte, l1_1)
+	buffer.Read(temp1_1)
+	m.Name = string(temp1_1)
+	m.Kit, _ = buffer.ReadByte()
+}
+
+type DeleteCharacter struct {
+	ID uint32
+}
+
+func (m *DeleteCharacter) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, m.ID)
+}
+
+func (m *DeleteCharacter) Deserialize(buffer *bytes.Buffer) {
+	binary.Read(buffer, binary.LittleEndian, &m.ID)
+}
+
+type Character struct {
+	ID uint32
+	Name string
+}
+
+func (m *Character) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, m.ID)
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
+	buffer.WriteString(m.Name)
+}
+
+func (m *Character) Deserialize(buffer *bytes.Buffer) {
+	binary.Read(buffer, binary.LittleEndian, &m.ID)
+	var l1_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l1_1)
+	temp1_1 := make([]byte, l1_1)
+	buffer.Read(temp1_1)
+	m.Name = string(temp1_1)
 }
 
 type ListGames struct {
@@ -182,38 +314,6 @@ func (m *JoinGame) Serialize(buffer *bytes.Buffer) {
 func (m *JoinGame) Deserialize(buffer *bytes.Buffer) {
 	binary.Read(buffer, binary.LittleEndian, &m.ID)
 	binary.Read(buffer, binary.LittleEndian, &m.CharID)
-}
-
-type CreateCharacter struct {
-	Name string
-	Kit byte
-}
-
-func (m *CreateCharacter) Serialize(buffer *bytes.Buffer) {
-	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
-	buffer.WriteString(m.Name)
-	buffer.WriteByte(m.Kit)
-}
-
-func (m *CreateCharacter) Deserialize(buffer *bytes.Buffer) {
-	var l0_1 int32
-	binary.Read(buffer, binary.LittleEndian, &l0_1)
-	temp0_1 := make([]byte, l0_1)
-	buffer.Read(temp0_1)
-	m.Name = string(temp0_1)
-	m.Kit, _ = buffer.ReadByte()
-}
-
-type DeleteCharacter struct {
-	ID int32
-}
-
-func (m *DeleteCharacter) Serialize(buffer *bytes.Buffer) {
-	binary.Write(buffer, binary.LittleEndian, m.ID)
-}
-
-func (m *DeleteCharacter) Deserialize(buffer *bytes.Buffer) {
-	binary.Read(buffer, binary.LittleEndian, &m.ID)
 }
 
 type MapLoaded struct {

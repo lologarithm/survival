@@ -1,4 +1,14 @@
 
+class CreateAccount {
+ Name string
+ Password string
+}
+
+class CreateAccountResponse {
+ AccountID uint32
+ Name string
+}
+
 class Login {
  Name string
  Password string
@@ -6,6 +16,24 @@ class Login {
 
 class LoginResponse {
  Success byte
+ Name string
+ AccountID uint32
+ Characters []*Character
+}
+
+class CreateCharacter {
+ AccountID uint32
+ Name string
+ Kit byte
+}
+
+class DeleteCharacter {
+ ID uint32
+}
+
+class Character {
+ ID uint32
+ Name string
 }
 
 class ListGames {
@@ -23,15 +51,6 @@ class CreateGame {
 class JoinGame {
  ID uint32
  CharID uint32
-}
-
-class CreateCharacter {
- Name string
- Kit byte
-}
-
-class DeleteCharacter {
- ID int32
 }
 
 class MapLoaded {
