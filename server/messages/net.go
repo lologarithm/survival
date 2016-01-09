@@ -27,6 +27,7 @@ const (
 	ListGamesMsgType
 	ListGamesRespMsgType
 	CreateGameMsgType
+	CreateGameRespMsgType
 	JoinGameMsgType
 	MapLoadedMsgType
 	EntityMsgType
@@ -64,6 +65,8 @@ func ParseNetMessage(msgFrame Frame, content []byte) Net {
 		msg = &ListGamesResp{}
 	case CreateGameMsgType:
 		msg = &CreateGame{}
+	case CreateGameRespMsgType:
+		msg = &CreateGameResp{}
 	case JoinGameMsgType:
 		msg = &JoinGame{}
 	case MapLoadedMsgType:
@@ -227,25 +230,18 @@ func (m *CreateChar) Deserialize(buffer *bytes.Buffer) {
 
 type CreateCharResp struct {
 	AccountID uint32
-	Name string
-	ID uint32
+	Character *Character
 }
 
 func (m *CreateCharResp) Serialize(buffer *bytes.Buffer) {
 	binary.Write(buffer, binary.LittleEndian, m.AccountID)
-	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
-	buffer.WriteString(m.Name)
-	binary.Write(buffer, binary.LittleEndian, m.ID)
+	m.Character.Serialize(buffer)
 }
 
 func (m *CreateCharResp) Deserialize(buffer *bytes.Buffer) {
 	binary.Read(buffer, binary.LittleEndian, &m.AccountID)
-	var l1_1 int32
-	binary.Read(buffer, binary.LittleEndian, &l1_1)
-	temp1_1 := make([]byte, l1_1)
-	buffer.Read(temp1_1)
-	m.Name = string(temp1_1)
-	binary.Read(buffer, binary.LittleEndian, &m.ID)
+	m.Character = new(Character)
+	m.Character.Deserialize(buffer)
 }
 
 type DeleteChar struct {
@@ -340,6 +336,26 @@ func (m *CreateGame) Deserialize(buffer *bytes.Buffer) {
 	temp0_1 := make([]byte, l0_1)
 	buffer.Read(temp0_1)
 	m.Name = string(temp0_1)
+}
+
+type CreateGameResp struct {
+	Name string
+	ID uint32
+}
+
+func (m *CreateGameResp) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
+	buffer.WriteString(m.Name)
+	binary.Write(buffer, binary.LittleEndian, m.ID)
+}
+
+func (m *CreateGameResp) Deserialize(buffer *bytes.Buffer) {
+	var l0_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l0_1)
+	temp0_1 := make([]byte, l0_1)
+	buffer.Read(temp0_1)
+	m.Name = string(temp0_1)
+	binary.Read(buffer, binary.LittleEndian, &m.ID)
 }
 
 type JoinGame struct {

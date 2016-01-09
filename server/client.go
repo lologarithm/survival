@@ -63,7 +63,7 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 				if ok && numMsgBytes <= len(client.buffer) {
 					netMsg := messages.ParseNetMessage(msgFrame, client.buffer[messages.FrameLen:numMsgBytes])
 					switch msgFrame.MsgType {
-					case messages.CreateAcctMsgType, messages.LoginMsgType, messages.CreateCharMsgType, messages.DeleteCharMsgType, messages.ListGamesMsgType, messages.JoinGameMsgType:
+					case messages.CreateAcctMsgType, messages.LoginMsgType, messages.CreateCharMsgType, messages.DeleteCharMsgType, messages.ListGamesMsgType, messages.JoinGameMsgType, messages.CreateGameMsgType:
 						client.toGameManager <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
 					default:
 						if toGame == nil {

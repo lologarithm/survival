@@ -28,6 +28,9 @@ public class NetworkMessenger : MonoBehaviour
         sending_socket.Connect(this.sending_end_point);
 
         // 1. Fetch network!
+        ListGames outmsg = new ListGames();
+        this.sendNetMessage(MsgType.ListGames, outmsg);
+
         // Start Receive and a new Accept
         try
         {
@@ -65,6 +68,21 @@ public class NetworkMessenger : MonoBehaviour
 		login_msg.Password = password;
 		this.sendNetMessage (MsgType.Login, login_msg);
 	}
+
+    public void CreateCharacter(string name)
+    {
+        CreateChar outmsg = new CreateChar();
+        outmsg.Name = name;
+        outmsg.AccountID = this.accounts[0];
+        this.sendNetMessage(MsgType.CreateChar, outmsg);
+    }
+
+    public void CreateGame(string name)
+    {
+        CreateGame outmsg = new CreateGame();
+        outmsg.Name = name;
+        this.sendNetMessage(MsgType.CreateGame, outmsg);
+    }
 
     private void ReceiveCallback(IAsyncResult result)
     {
@@ -137,6 +155,9 @@ public class NetworkMessenger : MonoBehaviour
         // We need to wait until later to finish loading!
     }
 
+    public List<Character> characters = new List<Character>();
+    public List<GameInstance> games = new List<GameInstance>();
+    public List<UInt32> accounts = new List<UInt32>();
     // Update is called once per frame
     void Update()
     {
@@ -144,12 +165,41 @@ public class NetworkMessenger : MonoBehaviour
         for (int i = 0; i < loops; i++)
         {
             NetMessage msg = this.message_queue.Dequeue();
-			INet parsedMsg = Messages.Parse (msg.message_type, msg.Content ());
+			INet parsedMsg = Messages.Parse(msg.message_type, msg.Content ());
 
 			// Read from message queue and process!
 			// Send updates to each object.
-
 			Debug.Log("Got message: " + parsedMsg);
+            switch ((MsgType)msg.message_type)
+            {
+                case MsgType.CreateCharResp:
+                    characters.Add(((CreateCharResp)parsedMsg).Character);
+                    break;
+                case MsgType.LoginResp:
+                    LoginResp lr = ((LoginResp)parsedMsg);
+                    if (lr.Characters.Length > 0)
+                    {
+                        characters.AddRange(lr.Characters);
+                    }
+                    accounts.Add(lr.AccountID);
+                    break;
+                case MsgType.ListGamesResp:
+                    ListGamesResp resp = ((ListGamesResp)parsedMsg);
+                    for (int j=0; j < resp.IDs.Length; j++)
+                    {
+                        GameInstance ni = new GameInstance();
+                        ni.ID = resp.IDs[j];
+                        ni.Name = resp.Names[j];
+                    }
+                    break;
+                case MsgType.CreateGameResp:
+                    CreateGameResp cgr = ((CreateGameResp)parsedMsg);
+                    GameInstance gi = new GameInstance();
+                    gi.Name = cgr.Name;
+                    gi.ID = cgr.ID;
+                    games.Add(gi);
+                    break;
+            }
         }
     }
 
@@ -170,6 +220,12 @@ public class NetworkMessenger : MonoBehaviour
 	void Awake () {
 		DontDestroyOnLoad(gameObject);
 	}
+}
+
+public class GameInstance
+{
+    public UInt32 ID;
+    public string Name;
 }
 
 public class NetMessage

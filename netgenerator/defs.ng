@@ -33,8 +33,7 @@ class CreateChar {
 
 class CreateCharResp {
  AccountID uint32
- Name string
- ID uint32
+ Character *Character
 }
 
 class DeleteChar {

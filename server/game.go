@@ -11,11 +11,11 @@ import (
 type Game struct {
 	Name string
 	// Player data
-	Clients           map[uint32]*Client
-	IntoServerManager chan GameMessage
-	FromNetwork       chan GameMessage // Messages from players.
-	Exit              chan int
-	Status            GameStatus
+	Clients         map[uint32]*Client
+	IntoGameManager chan GameMessage
+	FromNetwork     chan GameMessage // Messages from players.
+	Exit            chan int
+	Status          GameStatus
 }
 
 // Run starts the game!

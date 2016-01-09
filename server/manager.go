@@ -30,6 +30,9 @@ type GameManager struct {
 
 	// Temp junk to make this crap work
 	Accounts   []*Account
+	Characters []*Character
+	CharID     uint32
+	AccountID  uint32
 	AcctByName map[string]*Account
 }
 
@@ -41,6 +44,9 @@ func NewGameManager(exit chan int, fromNetwork chan GameMessage, toNetwork chan 
 		FromNetwork: fromNetwork,
 		ToNetwork:   toNetwork,
 		Exit:        exit,
+		Accounts:    make([]*Account, math.MaxUint16),
+		Characters:  make([]*Character, math.MaxUint16),
+		AcctByName:  map[string]*Account{},
 	}
 	return gm
 }
@@ -75,14 +81,17 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 	case messages.JoinGameMsgType:
 		// TODO: for now just join the default game?
 	case messages.CreateGameMsgType:
-		// TODO: Make a new game!
-		// Then the user that created it joins it!
+		gm.createGame(msg)
+		// TODO: the user that created it joins it!
 	case messages.ListGamesMsgType:
 		gameList := &messages.ListGamesResp{
 			IDs:   []uint32{},
 			Names: []string{},
 		}
 		for idx, g := range gm.Games {
+			if idx == int(gm.NextGameID) {
+				break
+			}
 			gameList.IDs = append(gameList.IDs, uint32(idx))
 			gameList.Names = append(gameList.Names, g.Name)
 		}
@@ -96,6 +105,27 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 
 }
 
+func (gm *GameManager) createGame(msg GameMessage) {
+	cgm := msg.net.(*messages.CreateGame)
+
+	g := &Game{
+		Name:            cgm.Name,
+		IntoGameManager: gm.FromGames,
+		FromNetwork:     make(chan GameMessage, 100),
+	}
+
+	gm.NextGameID++
+	gm.Games[gm.NextGameID] = g
+	cgr := &messages.CreateGameResp{
+		Name: cgm.Name,
+		ID:   gm.NextGameID,
+	}
+	msg.client.fromGameManager <- InternalMessage{
+		ToGame: g.FromNetwork,
+	}
+	resp := NewOutgoingMsg(msg.client, messages.CreateGameRespMsgType, cgr)
+	gm.ToNetwork <- resp
+}
 func (gm *GameManager) handleConnection(msg GameMessage) {
 	netmsg := msg.net.(*messages.Connected)
 	// First make sure this is a new connection.
@@ -113,22 +143,27 @@ func (gm *GameManager) createCharacter(msg GameMessage) {
 	netmsg := msg.net.(*messages.CreateChar)
 	ac := &messages.CreateCharResp{
 		AccountID: netmsg.AccountID,
-		Name:      netmsg.Name,
-		ID:        0,
+		Character: &messages.Character{
+			Name: netmsg.Name,
+			ID:   0,
+		},
 	}
 	var acct *Account
 	// 1. Validate user is logged in as account specified.
-	for _, acct := range gm.Users[msg.client.ID].Accounts {
-		if acct.ID == netmsg.AccountID {
-
+	for _, uact := range gm.Users[msg.client.ID].Accounts {
+		if uact.ID == netmsg.AccountID {
+			acct = uact
 		}
 	}
+	gm.CharID++
 	if acct != nil {
 		char := &Character{
+			ID:    gm.CharID,
 			Name:  netmsg.Name,
 			Items: []*Item{},
 		}
 		acct.Characters = append(acct.Characters, char)
+		gm.Characters[gm.CharID] = char
 	}
 	resp := NewOutgoingMsg(msg.client, messages.CreateCharRespMsgType, ac)
 	gm.ToNetwork <- resp
@@ -140,22 +175,18 @@ func (gm *GameManager) createAccount(msg GameMessage) {
 		AccountID: 0,
 		Name:      netmsg.Name,
 	}
-	found := false
-	for _, acc := range gm.Accounts {
-		if acc.Name == netmsg.Name {
-			found = true
-			break
-		}
-	}
-	if !found {
-		ac.AccountID = uint32(len(gm.Accounts))
+
+	if _, ok := gm.AcctByName[netmsg.Name]; !ok {
+		gm.AccountID++
+		ac.AccountID = gm.AccountID
 		gm.Accounts[ac.AccountID] = &Account{
 			ID:         ac.AccountID,
 			Name:       netmsg.Name,
 			Password:   netmsg.Password,
 			Characters: []*Character{},
 		}
-		// TODO: login the new account.
+		gm.AcctByName[netmsg.Name] = gm.Accounts[ac.AccountID]
+		gm.Users[msg.client.ID].Accounts = append(gm.Users[msg.client.ID].Accounts, gm.Accounts[ac.AccountID])
 	}
 
 	resp := NewOutgoingMsg(msg.client, messages.CreateAcctRespMsgType, ac)
@@ -164,13 +195,14 @@ func (gm *GameManager) createAccount(msg GameMessage) {
 
 func (gm *GameManager) loginUser(msg GameMessage) {
 	tmsg := msg.net.(*messages.Login)
-	log.Printf("Logging in account: %s", tmsg.Name)
 	lr := messages.LoginResp{
 		Success: 0,
 		Name:    tmsg.Name,
 	}
-	for _, acct := range gm.Accounts {
-		if acct.Name == tmsg.Name && acct.Password == tmsg.Password {
+
+	if acct, ok := gm.AcctByName[tmsg.Name]; ok {
+		if acct.Password == tmsg.Password {
+			log.Printf("Logging in account: %s", tmsg.Name)
 			lr.AccountID = acct.ID
 			lr.Characters = make([]*messages.Character, len(acct.Characters))
 			for idx, ch := range acct.Characters {
@@ -179,6 +211,7 @@ func (gm *GameManager) loginUser(msg GameMessage) {
 					ID:   ch.ID,
 				}
 			}
+			gm.Users[msg.client.ID].Accounts = append(gm.Users[msg.client.ID].Accounts, acct)
 		}
 	}
 	resp := NewOutgoingMsg(msg.client, messages.LoginRespMsgType, &lr)
