@@ -33,6 +33,7 @@ public class GameCharManager : MonoBehaviour {
                 GameObject exitingtog = GameObject.Find("chartoggle_" + c.Name);
                 if (exitingtog != null)
                 {
+                    ord++;
                     continue;
                 }
                 GameObject t = Instantiate(toggleprefab);
