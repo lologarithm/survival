@@ -1,10 +1,14 @@
 
-class CreateAccount {
+class Connected {
+ IsConnected byte
+}
+
+class CreateAcct {
  Name string
  Password string
 }
 
-class CreateAccountResponse {
+class CreateAcctResp {
  AccountID uint32
  Name string
 }
@@ -14,20 +18,26 @@ class Login {
  Password string
 }
 
-class LoginResponse {
+class LoginResp {
  Success byte
  Name string
  AccountID uint32
  Characters []*Character
 }
 
-class CreateCharacter {
+class CreateChar {
  AccountID uint32
  Name string
  Kit byte
 }
 
-class DeleteCharacter {
+class CreateCharResp {
+ AccountID uint32
+ Name string
+ ID uint32
+}
+
+class DeleteChar {
  ID uint32
 }
 
@@ -39,13 +49,18 @@ class Character {
 class ListGames {
 }
 
-class ListGamesResponse {
+class ListGamesResp {
  IDs []uint32
  Names []string
 }
 
 class CreateGame {
  Name string
+}
+
+class CreateGameResp {
+ Name string
+ ID uint32
 }
 
 class JoinGame {

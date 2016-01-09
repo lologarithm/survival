@@ -7,7 +7,7 @@ interface INet {
 	void Deserialize(BinaryReader buffer);
 }
 
-enum MsgType : byte {Unknown=0,CreateAccount=1,CreateAccountResponse=2,Login=3,LoginResponse=4,CreateCharacter=5,DeleteCharacter=6,Character=7,ListGames=8,ListGamesResponse=9,CreateGame=10,JoinGame=11,MapLoaded=12,Entity=13,EntityMove=14,UseAbility=15,AbilityResult=16,EndGame=17}
+enum MsgType : byte {Unknown=0,Connected=1,CreateAcct=2,CreateAcctResp=3,Login=4,LoginResp=5,CreateChar=6,CreateCharResp=7,DeleteChar=8,Character=9,ListGames=10,ListGamesResp=11,CreateGame=12,JoinGame=13,MapLoaded=14,Entity=15,EntityMove=16,UseAbility=17,AbilityResult=18,EndGame=19}
 
 static class Messages {
 // ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.
@@ -16,23 +16,29 @@ public static INet Parse(byte msgType, byte[] content) {
 	MsgType mt = (MsgType)msgType;
 	switch (mt)
 	{
-		case MsgType.CreateAccount:
-			msg = new CreateAccount();
+		case MsgType.Connected:
+			msg = new Connected();
 			break;
-		case MsgType.CreateAccountResponse:
-			msg = new CreateAccountResponse();
+		case MsgType.CreateAcct:
+			msg = new CreateAcct();
+			break;
+		case MsgType.CreateAcctResp:
+			msg = new CreateAcctResp();
 			break;
 		case MsgType.Login:
 			msg = new Login();
 			break;
-		case MsgType.LoginResponse:
-			msg = new LoginResponse();
+		case MsgType.LoginResp:
+			msg = new LoginResp();
 			break;
-		case MsgType.CreateCharacter:
-			msg = new CreateCharacter();
+		case MsgType.CreateChar:
+			msg = new CreateChar();
 			break;
-		case MsgType.DeleteCharacter:
-			msg = new DeleteCharacter();
+		case MsgType.CreateCharResp:
+			msg = new CreateCharResp();
+			break;
+		case MsgType.DeleteChar:
+			msg = new DeleteChar();
 			break;
 		case MsgType.Character:
 			msg = new Character();
@@ -40,8 +46,8 @@ public static INet Parse(byte msgType, byte[] content) {
 		case MsgType.ListGames:
 			msg = new ListGames();
 			break;
-		case MsgType.ListGamesResponse:
-			msg = new ListGamesResponse();
+		case MsgType.ListGamesResp:
+			msg = new ListGamesResp();
 			break;
 		case MsgType.CreateGame:
 			msg = new CreateGame();
@@ -74,7 +80,19 @@ public static INet Parse(byte msgType, byte[] content) {
 }
 }
 
-public class CreateAccount : INet {
+public class Connected : INet {
+	public byte IsConnected;
+
+	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.IsConnected);
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+		this.IsConnected = buffer.ReadByte();
+	}
+}
+
+public class CreateAcct : INet {
 	public string Name;
 	public string Password;
 
@@ -95,7 +113,7 @@ public class CreateAccount : INet {
 	}
 }
 
-public class CreateAccountResponse : INet {
+public class CreateAcctResp : INet {
 	public UInt32 AccountID;
 	public string Name;
 
@@ -134,7 +152,7 @@ public class Login : INet {
 	}
 }
 
-public class LoginResponse : INet {
+public class LoginResp : INet {
 	public byte Success;
 	public string Name;
 	public UInt32 AccountID;
@@ -166,7 +184,7 @@ public class LoginResponse : INet {
 	}
 }
 
-public class CreateCharacter : INet {
+public class CreateChar : INet {
 	public UInt32 AccountID;
 	public string Name;
 	public byte Kit;
@@ -187,7 +205,28 @@ public class CreateCharacter : INet {
 	}
 }
 
-public class DeleteCharacter : INet {
+public class CreateCharResp : INet {
+	public UInt32 AccountID;
+	public string Name;
+	public UInt32 ID;
+
+	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.AccountID);
+		buffer.Write((Int32)this.Name.Length);
+		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
+		buffer.Write(this.ID);
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+		this.AccountID = buffer.ReadUInt32();
+		int l1_1 = buffer.ReadInt32();
+		byte[] temp1_1 = buffer.ReadBytes(l1_1);
+		this.Name = System.Text.Encoding.UTF8.GetString(temp1_1);
+		this.ID = buffer.ReadUInt32();
+	}
+}
+
+public class DeleteChar : INet {
 	public UInt32 ID;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -226,7 +265,7 @@ public class ListGames : INet {
 	}
 }
 
-public class ListGamesResponse : INet {
+public class ListGamesResp : INet {
 	public UInt32[] IDs;
 	public string[] Names;
 

@@ -9,6 +9,7 @@ import (
 
 // Game represents a single game
 type Game struct {
+	Name string
 	// Player data
 	Clients           map[uint32]*Client
 	IntoServerManager chan GameMessage
@@ -51,4 +52,9 @@ type GameMessage struct {
 	net    messages.Net
 	client *Client
 	mtype  messages.MessageType
+}
+
+// TODO: Is this needed?
+type InternalMessage struct {
+	ToGame chan GameMessage
 }

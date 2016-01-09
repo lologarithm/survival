@@ -25,6 +25,7 @@ type Server struct {
 
 	connections map[string]*Client
 	gameManager *GameManager
+	clientID    uint32
 }
 
 func (s *Server) handleMessage() {
@@ -40,9 +41,16 @@ func (s *Server) handleMessage() {
 		s.DisconnectConn(addrkey)
 	}
 	if _, ok := s.connections[addrkey]; !ok {
-		fmt.Printf("New Connection: %v\n", addrkey)
-		s.connections[addrkey] = &Client{address: addr, fromNetwork: make(chan []byte, 100), fromGameManager: make(chan GameMessage, 10)}
-		go s.connections[addrkey].ProcessBytes(s.toGameManager, s.outToNetwork, s.disconnectPlayer)
+		s.clientID++
+		fmt.Printf("New Connection: %v, ID: %d\n", addrkey, s.clientID)
+		s.connections[addrkey] = &Client{
+			address:         addr,
+			fromNetwork:     make(chan []byte, 100),
+			fromGameManager: make(chan InternalMessage, 10),
+			toGameManager:   s.toGameManager,
+			ID:              s.clientID,
+		}
+		go s.connections[addrkey].ProcessBytes(s.outToNetwork, s.disconnectPlayer)
 	}
 	s.connections[addrkey].fromNetwork <- s.inputBuffer[0:n]
 }

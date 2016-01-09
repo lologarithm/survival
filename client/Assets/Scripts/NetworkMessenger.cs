@@ -5,7 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Collections.Generic;
 
-public class Network : MonoBehaviour
+public class NetworkMessenger : MonoBehaviour
 {
     Socket sending_socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
     IPAddress send_to_address;
@@ -25,22 +25,8 @@ public class Network : MonoBehaviour
         this.stored_bytes = new List<byte>();
         this.send_to_address = IPAddress.Parse("127.0.0.1");
         this.sending_end_point = new IPEndPoint(send_to_address, 24816);
-
-        Login login_msg = new Login();
-        login_msg.Name = "test";
-        login_msg.Password = "testpwd";
-
         sending_socket.Connect(this.sending_end_point);
 
-        NetMessage msg = new NetMessage();
-
-		MemoryStream stream = new MemoryStream();
-        BinaryWriter buffer = new BinaryWriter(stream);
-        login_msg.Serialize(buffer);
-        msg.content = stream.ToArray();
-		msg.content_length = (UInt16)msg.content.Length;
-		msg.message_type = (byte)MsgType.Login;
-        sending_socket.Send(msg.MessageBytes());
         // 1. Fetch network!
         // Start Receive and a new Accept
         try
@@ -55,9 +41,33 @@ public class Network : MonoBehaviour
 
     }
 
+	private void sendNetMessage(MsgType t, INet outmsg) {
+		NetMessage msg = new NetMessage();
+		MemoryStream stream = new MemoryStream();
+		BinaryWriter buffer = new BinaryWriter(stream);
+		outmsg.Serialize(buffer);
+		msg.content = stream.ToArray();
+		msg.content_length = (UInt16)msg.content.Length;
+		msg.message_type = (byte)t;
+		this.sending_socket.Send(msg.MessageBytes());	
+	}
+
+	public void CreateAccount(string name, string password) {
+		CreateAcct outmsg = new CreateAcct();
+		outmsg.Name = name;
+		outmsg.Password = password;
+		this.sendNetMessage (MsgType.CreateAcct, outmsg);
+	}
+
+	public void Login(string name, string password) {
+		Login login_msg = new Login();
+		login_msg.Name = name;
+		login_msg.Password = password;
+		this.sendNetMessage (MsgType.Login, login_msg);
+	}
+
     private void ReceiveCallback(IAsyncResult result)
     {
-        //PlayerConnection connection = (PlayerConnection)result.AsyncState;
         int bytesRead = 0;
         try
         {

@@ -16,6 +16,7 @@ type Account struct {
 
 // Character is a single entity in the game.
 type Character struct {
+	ID    uint32
 	Name  string
 	Items []*Item
 }

@@ -6,17 +6,24 @@ public class PlayParticles : MonoBehaviour {
     public ParticleSystem particles;
 
     public void Start()
-    {
-        this.particles.Stop();
+	{
+		if (particles != null) {
+			this.particles.Stop();
+		}
+        
     }
 
     public void StartParticle()
     {
-        this.particles.Play();
+		if (particles != null) {
+			this.particles.Play ();
+		}
     }
 
     public void StopParticle()
     {
-        this.particles.Stop();
+		if (particles != null) {
+			this.particles.Stop ();
+		}
     }
 }
