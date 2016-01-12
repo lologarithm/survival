@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lologarithm/survival/server/forestGen"
 	"github.com/lologarithm/survival/server/messages"
 )
 
@@ -17,6 +18,12 @@ type Game struct {
 	Exit            chan int
 	Status          GameStatus
 }
+
+type GameState struct {
+	Map *forestGen.Map
+}
+
+// TODO: Structure tiles?
 
 // Run starts the game!
 func (gm *Game) Run() {
@@ -33,7 +40,7 @@ func (gm *Game) Run() {
 				fmt.Printf("GameManager: Received message: %T\n", msg)
 				switch msg.mtype {
 				default:
-					fmt.Println("GameManager.go:RunGame(): UNKNOWN MESSAGE TYPE: %T", msg)
+					fmt.Printf("GameManager.go:RunGame(): UNKNOWN MESSAGE TYPE: %T\n", msg)
 				}
 			case <-gm.Exit:
 				fmt.Println("EXITING Game Manager")
@@ -44,8 +51,15 @@ func (gm *Game) Run() {
 	}
 }
 
-// Setup sets up the game!
-func (gm *Game) Setup() {
+// NewGame constructs a new game and starts it.
+func NewGame(name string, toGameManager chan GameMessage) *Game {
+	g := &Game{
+		Name:            name,
+		IntoGameManager: toGameManager,
+		FromNetwork:     make(chan GameMessage, 100),
+	}
+	g.Run()
+	return g
 }
 
 type GameMessage struct {

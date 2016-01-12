@@ -22,7 +22,7 @@ type GameManager struct {
 	// Player data
 	Users       []*User
 	Games       []*Game
-	NextGameID  uint32
+	NextGameID  uint32 // TODO: this shouldn't just be a number..
 	FromNetwork chan GameMessage
 	FromGames   chan GameMessage
 	ToNetwork   chan OutgoingMessage
@@ -108,12 +108,7 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 func (gm *GameManager) createGame(msg GameMessage) {
 	cgm := msg.net.(*messages.CreateGame)
 
-	g := &Game{
-		Name:            cgm.Name,
-		IntoGameManager: gm.FromGames,
-		FromNetwork:     make(chan GameMessage, 100),
-	}
-
+	g := NewGame(cgm.Name, gm.FromGames)
 	gm.NextGameID++
 	gm.Games[gm.NextGameID] = g
 	cgr := &messages.CreateGameResp{
@@ -126,6 +121,7 @@ func (gm *GameManager) createGame(msg GameMessage) {
 	resp := NewOutgoingMsg(msg.client, messages.CreateGameRespMsgType, cgr)
 	gm.ToNetwork <- resp
 }
+
 func (gm *GameManager) handleConnection(msg GameMessage) {
 	netmsg := msg.net.(*messages.Connected)
 	// First make sure this is a new connection.
