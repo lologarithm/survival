@@ -20,12 +20,13 @@ const (
 // GameManager manages all connected users and games.
 type GameManager struct {
 	// Player data
-	Users       []*User
-	Games       []*Game
-	NextGameID  uint32 // TODO: this shouldn't just be a number..
-	FromNetwork chan GameMessage
-	FromGames   chan GameMessage
-	ToNetwork   chan OutgoingMessage
+	Users      []*User
+	Games      []*Game
+	NextGameID uint32 // TODO: this shouldn't just be a number..
+
+	FromGames   chan GameMessage // Manager reads this only, all games created write only
+	FromNetwork <-chan GameMessage
+	ToNetwork   chan<- OutgoingMessage
 	Exit        chan int
 
 	// Temp junk to make this crap work
@@ -108,15 +109,16 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 func (gm *GameManager) createGame(msg GameMessage) {
 	cgm := msg.net.(*messages.CreateGame)
 
-	g := NewGame(cgm.Name, gm.FromGames)
+	netchan := make(chan GameMessage, 100)
+	g := NewGame(cgm.Name, gm.FromGames, netchan)
 	gm.NextGameID++
 	gm.Games[gm.NextGameID] = g
 	cgr := &messages.CreateGameResp{
 		Name: cgm.Name,
 		ID:   gm.NextGameID,
 	}
-	msg.client.fromGameManager <- InternalMessage{
-		ToGame: g.FromNetwork,
+	msg.client.FromGameManager <- InternalMessage{
+		ToGame: netchan,
 	}
 	resp := NewOutgoingMsg(msg.client, messages.CreateGameRespMsgType, cgr)
 	gm.ToNetwork <- resp

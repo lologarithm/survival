@@ -10,15 +10,18 @@ import (
 // TODO: Track 'reliable' messages. Decide which need to be resent.
 
 type Client struct {
-	ID          uint32 // Unique ID for this session
-	buffer      []byte
-	wIdx        int
-	address     *net.UDPAddr
-	fromNetwork chan []byte // Bytes from client to server
+	ID      uint32 // Unique ID for this session
+	buffer  []byte
+	wIdx    int
+	address *net.UDPAddr
 
-	toGameManager   chan GameMessage     // Messages to the main game manager.
-	fromGameManager chan InternalMessage //
-	toActiveGame    chan GameMessage     // Messages to the current game
+	// These channels are written to by another process
+	FromNetwork     chan []byte          // Bytes from client to server
+	FromGameManager chan InternalMessage //
+
+	// These channels can be written to in the client but not read from.
+	toGameManager chan<- GameMessage // Messages to the main game manager.
+	toActiveGame  chan<- GameMessage // Messages to the current game
 
 	Seq   uint16
 	Alive bool
@@ -37,10 +40,10 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 	}
 	client.Alive = true
 
-	var toGame chan GameMessage // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
+	var toGame chan<- GameMessage // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
 	for client.Alive {
 		select {
-		case bytes, ok := <-client.fromNetwork:
+		case bytes, ok := <-client.FromNetwork:
 			if !ok {
 				client.Alive = false
 				break
@@ -78,7 +81,7 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 					client.wIdx -= numMsgBytes
 				}
 			}
-		case gmsg := <-client.fromGameManager:
+		case gmsg := <-client.FromGameManager:
 			toGame = gmsg.ToGame
 		}
 	}

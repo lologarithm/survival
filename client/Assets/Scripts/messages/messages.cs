@@ -7,7 +7,7 @@ interface INet {
 	void Deserialize(BinaryReader buffer);
 }
 
-enum MsgType : byte {Unknown=0,Connected=1,CreateAcct=2,CreateAcctResp=3,Login=4,LoginResp=5,CreateChar=6,CreateCharResp=7,DeleteChar=8,Character=9,ListGames=10,ListGamesResp=11,CreateGame=12,CreateGameResp=13,JoinGame=14,MapLoaded=15,Entity=16,EntityMove=17,UseAbility=18,AbilityResult=19,EndGame=20}
+enum MsgType : byte {Unknown=0,Connected=1,CreateAcct=2,CreateAcctResp=3,Login=4,LoginResp=5,CreateChar=6,CreateCharResp=7,DeleteChar=8,Character=9,ListGames=10,ListGamesResp=11,CreateGame=12,CreateGameResp=13,JoinGame=14,GameConnected=15,Entity=16,EntityMove=17,UseAbility=18,AbilityResult=19,EndGame=20}
 
 static class Messages {
 // ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.
@@ -58,8 +58,8 @@ public static INet Parse(byte msgType, byte[] content) {
 		case MsgType.JoinGame:
 			msg = new JoinGame();
 			break;
-		case MsgType.MapLoaded:
-			msg = new MapLoaded();
+		case MsgType.GameConnected:
+			msg = new GameConnected();
 			break;
 		case MsgType.Entity:
 			msg = new Entity();
@@ -343,18 +343,12 @@ public class JoinGame : INet {
 	}
 }
 
-public class MapLoaded : INet {
-	public byte[][] Tiles;
+public class GameConnected : INet {
+	public UInt64 Seed;
 	public Entity[] Entities;
 
 	public void Serialize(BinaryWriter buffer) {
-		buffer.Write((Int32)this.Tiles.Length);
-		for (int v2 = 0; v2 < this.Tiles.Length; v2++) {
-			buffer.Write((Int32)this.Tiles[v2].Length);
-			for (int v3 = 0; v3 < this.Tiles[v2].Length; v3++) {
-				buffer.Write(this.Tiles[v2][v3]);
-			}
-		}
+		buffer.Write(this.Seed);
 		buffer.Write((Int32)this.Entities.Length);
 		for (int v2 = 0; v2 < this.Entities.Length; v2++) {
 			this.Entities[v2].Serialize(buffer);
@@ -362,15 +356,7 @@ public class MapLoaded : INet {
 	}
 
 	public void Deserialize(BinaryReader buffer) {
-		int l0_1 = buffer.ReadInt32();
-		this.Tiles = new byte[l0_1][];
-		for (int v2 = 0; v2 < l0_1; v2++) {
-			int l0_2 = buffer.ReadInt32();
-			this.Tiles[v2] = new byte[l0_2];
-			for (int v3 = 0; v3 < l0_2; v3++) {
-				this.Tiles[v2][v3] = buffer.ReadByte();
-			}
-		}
+		this.Seed = buffer.ReadUInt64();
 		int l1_1 = buffer.ReadInt32();
 		this.Entities = new Entity[l1_1];
 		for (int v2 = 0; v2 < l1_1; v2++) {

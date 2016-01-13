@@ -45,21 +45,23 @@ func TestBasicServer(t *testing.T) {
 	binary.Write(messageBytes, binary.LittleEndian, uint16(tbuf.Len()))
 	tbuf.WriteTo(messageBytes)
 	log.Printf("Writing Msg: %v", messageBytes.Bytes())
-	conn.Write(messageBytes.Bytes())
+	_, err = conn.Write(messageBytes.Bytes())
 	if err != nil {
+		fmt.Printf("Failed to write to connection.")
 		fmt.Println(err)
 		t.FailNow()
 	}
 	buf := make([]byte, 512)
 	n, err := conn.Read(buf[0:])
 	if err != nil {
+		fmt.Printf("Failed to read from conn.")
 		fmt.Println(err)
 		t.FailNow()
 	}
-	if n < 5 || buf[0] != 2 {
+	if n < 5 || buf[0] != byte(messages.LoginRespMsgType) {
+		fmt.Printf("Incorrect response message!")
 		t.FailNow()
 	}
 	conn.Write([]byte{255, 0, 0, 0, 0})
 	conn.Close()
-
 }

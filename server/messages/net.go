@@ -29,7 +29,7 @@ const (
 	CreateGameMsgType
 	CreateGameRespMsgType
 	JoinGameMsgType
-	MapLoadedMsgType
+	GameConnectedMsgType
 	EntityMsgType
 	EntityMoveMsgType
 	UseAbilityMsgType
@@ -69,8 +69,8 @@ func ParseNetMessage(msgFrame Frame, content []byte) Net {
 		msg = &CreateGameResp{}
 	case JoinGameMsgType:
 		msg = &JoinGame{}
-	case MapLoadedMsgType:
-		msg = &MapLoaded{}
+	case GameConnectedMsgType:
+		msg = &GameConnected{}
 	case EntityMsgType:
 		msg = &Entity{}
 	case EntityMoveMsgType:
@@ -373,37 +373,21 @@ func (m *JoinGame) Deserialize(buffer *bytes.Buffer) {
 	binary.Read(buffer, binary.LittleEndian, &m.CharID)
 }
 
-type MapLoaded struct {
-	Tiles [][]byte
+type GameConnected struct {
+	Seed uint64
 	Entities []*Entity
 }
 
-func (m *MapLoaded) Serialize(buffer *bytes.Buffer) {
-	binary.Write(buffer, binary.LittleEndian, int32(len(m.Tiles)))
-	for _, v2 := range m.Tiles {
-		binary.Write(buffer, binary.LittleEndian, int32(len(v2)))
-		for _, v3 := range v2 {
-			buffer.WriteByte(v3)
-		}
-	}
+func (m *GameConnected) Serialize(buffer *bytes.Buffer) {
+	m.Seed.Serialize(buffer)
 	binary.Write(buffer, binary.LittleEndian, int32(len(m.Entities)))
 	for _, v2 := range m.Entities {
 		v2.Serialize(buffer)
 	}
 }
 
-func (m *MapLoaded) Deserialize(buffer *bytes.Buffer) {
-	var l0_1 int32
-	binary.Read(buffer, binary.LittleEndian, &l0_1)
-	m.Tiles = make([][]byte, l0_1)
-	for i := 0; i < int(l0_1); i++ {
-		var l0_2 int32
-		binary.Read(buffer, binary.LittleEndian, &l0_2)
-		m.Tiles[i] = make([]byte, l0_2)
-		for i := 0; i < int(l0_2); i++ {
-			m.Tiles[i][i], _ = buffer.ReadByte()
-		}
-	}
+func (m *GameConnected) Deserialize(buffer *bytes.Buffer) {
+	binary.Read(buffer, binary.LittleEndian, &m.Seed)
 	var l1_1 int32
 	binary.Read(buffer, binary.LittleEndian, &l1_1)
 	m.Entities = make([]*Entity, l1_1)

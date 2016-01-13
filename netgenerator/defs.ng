@@ -67,8 +67,8 @@ class JoinGame {
  CharID uint32
 }
 
-class MapLoaded {
- Tiles [][]byte
+class GameConnected {
+ Seed uint64
  Entities []*Entity
 }
 
