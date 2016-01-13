@@ -341,12 +341,19 @@ func (m *CreateGame) Deserialize(buffer *bytes.Buffer) {
 type CreateGameResp struct {
 	Name string
 	ID uint32
+	Seed uint64
+	Entities []*Entity
 }
 
 func (m *CreateGameResp) Serialize(buffer *bytes.Buffer) {
 	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
 	buffer.WriteString(m.Name)
 	binary.Write(buffer, binary.LittleEndian, m.ID)
+	binary.Write(buffer, binary.LittleEndian, m.Seed)
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Entities)))
+	for _, v2 := range m.Entities {
+		v2.Serialize(buffer)
+	}
 }
 
 func (m *CreateGameResp) Deserialize(buffer *bytes.Buffer) {
@@ -356,6 +363,14 @@ func (m *CreateGameResp) Deserialize(buffer *bytes.Buffer) {
 	buffer.Read(temp0_1)
 	m.Name = string(temp0_1)
 	binary.Read(buffer, binary.LittleEndian, &m.ID)
+	binary.Read(buffer, binary.LittleEndian, &m.Seed)
+	var l3_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l3_1)
+	m.Entities = make([]*Entity, l3_1)
+	for i := 0; i < int(l3_1); i++ {
+		m.Entities[i] = new(Entity)
+		m.Entities[i].Deserialize(buffer)
+	}
 }
 
 type JoinGame struct {
@@ -399,23 +414,35 @@ func (m *GameConnected) Deserialize(buffer *bytes.Buffer) {
 
 type Entity struct {
 	ID uint32
+	EType uint16
+	Seed uint64
+	X uint32
+	Y uint32
+	Height uint32
+	Width uint32
 	HealthPercent byte
-	X int32
-	Y int32
 }
 
 func (m *Entity) Serialize(buffer *bytes.Buffer) {
 	binary.Write(buffer, binary.LittleEndian, m.ID)
-	buffer.WriteByte(m.HealthPercent)
+	binary.Write(buffer, binary.LittleEndian, m.EType)
+	binary.Write(buffer, binary.LittleEndian, m.Seed)
 	binary.Write(buffer, binary.LittleEndian, m.X)
 	binary.Write(buffer, binary.LittleEndian, m.Y)
+	binary.Write(buffer, binary.LittleEndian, m.Height)
+	binary.Write(buffer, binary.LittleEndian, m.Width)
+	buffer.WriteByte(m.HealthPercent)
 }
 
 func (m *Entity) Deserialize(buffer *bytes.Buffer) {
 	binary.Read(buffer, binary.LittleEndian, &m.ID)
-	m.HealthPercent, _ = buffer.ReadByte()
+	binary.Read(buffer, binary.LittleEndian, &m.EType)
+	binary.Read(buffer, binary.LittleEndian, &m.Seed)
 	binary.Read(buffer, binary.LittleEndian, &m.X)
 	binary.Read(buffer, binary.LittleEndian, &m.Y)
+	binary.Read(buffer, binary.LittleEndian, &m.Height)
+	binary.Read(buffer, binary.LittleEndian, &m.Width)
+	m.HealthPercent, _ = buffer.ReadByte()
 }
 
 type EntityMove struct {

@@ -60,6 +60,8 @@ class CreateGame {
 class CreateGameResp {
  Name string
  ID uint32
+ Seed uint64
+ Entities []*Entity
 }
 
 class JoinGame {
@@ -74,9 +76,13 @@ class GameConnected {
 
 class Entity {
  ID uint32
+ EType uint16
+ Seed uint64
+ X uint32
+ Y uint32
+ Height uint32
+ Width uint32
  HealthPercent byte
- X int32
- Y int32
 }
 
 class EntityMove {

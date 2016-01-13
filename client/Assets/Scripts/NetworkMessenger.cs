@@ -5,6 +5,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Collections.Generic;
 
+// TODO: This has become way more than just network -- it is now also game state.
+// We should separate them and make the parent 'game state manager' that persists across scenes.
 public class NetworkMessenger : MonoBehaviour
 {
     Socket sending_socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -183,6 +185,10 @@ public class NetworkMessenger : MonoBehaviour
                     }
                     accounts.Add(lr.AccountID);
                     break;
+				case MsgType.CreateAcctResp:
+					CreateAcctResp car = ((CreateAcctResp)parsedMsg);
+					accounts.Add (car.AccountID);
+					break;
                 case MsgType.ListGamesResp:
                     ListGamesResp resp = ((ListGamesResp)parsedMsg);
                     for (int j=0; j < resp.IDs.Length; j++)
@@ -226,6 +232,8 @@ public class GameInstance
 {
     public UInt32 ID;
     public string Name;
+	public UInt64 Seed;
+	public Entity[] entities;
 }
 
 public class NetMessage

@@ -23,6 +23,11 @@ public class GameCharManager : MonoBehaviour {
         this.msger.CreateGame(gamename.text);
     }
 
+	public void handleStartGame()
+	{
+		UnityEngine.SceneManagement.SceneManager.LoadScene("game_scene");
+	}
+
     public void Update()
     {
         if (this.msger != null)

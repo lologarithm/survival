@@ -111,11 +111,14 @@ func (gm *GameManager) createGame(msg GameMessage) {
 
 	netchan := make(chan GameMessage, 100)
 	g := NewGame(cgm.Name, gm.FromGames, netchan)
+	g.SpawnChunk(0, 0)
 	gm.NextGameID++
 	gm.Games[gm.NextGameID] = g
 	cgr := &messages.CreateGameResp{
-		Name: cgm.Name,
-		ID:   gm.NextGameID,
+		Name:     cgm.Name,
+		ID:       gm.NextGameID,
+		Seed:     g.Seed,
+		Entities: g.World.EntitiesMsg(),
 	}
 	msg.client.FromGameManager <- InternalMessage{
 		ToGame: netchan,

@@ -35,6 +35,15 @@ type GameWorld struct {
 	Chunks   map[uint32]map[uint32]bool // list of chunks that have been already created.
 }
 
+func (gw *GameWorld) EntitiesMsg() []*messages.Entity {
+	es := make([]*messages.Entity, len(gw.Entities))
+	for idx, e := range gw.Entities {
+		es[idx] = e.toMsg()
+	}
+
+	return es
+}
+
 // TODO: Structure tiles?
 
 // Run starts the game!
@@ -179,6 +188,14 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 			gm.World.Entities = append(gm.World.Entities, te)
 		}
 	}
+
+	if gm.World.Chunks == nil {
+		gm.World.Chunks = map[uint32]map[uint32]bool{}
+	}
+	if gm.World.Chunks[x] == nil {
+		gm.World.Chunks[x] = map[uint32]bool{}
+	}
+	gm.World.Chunks[x][y] = true
 }
 
 // NewGame constructs a new game and starts it.
@@ -205,6 +222,20 @@ type Entity struct {
 	Y      uint32
 	Height uint32
 	Width  uint32
+}
+
+func (e *Entity) toMsg() *messages.Entity {
+	o := &messages.Entity{
+		ID:     e.ID,
+		X:      e.X,
+		Y:      e.Y,
+		Height: e.Height,
+		Width:  e.Width,
+		EType:  e.EType,
+		Seed:   e.Seed,
+	}
+
+	return o
 }
 
 func (e *Entity) Intersects(o *Entity) bool {

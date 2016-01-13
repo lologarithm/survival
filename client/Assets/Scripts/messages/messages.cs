@@ -313,11 +313,18 @@ public class CreateGame : INet {
 public class CreateGameResp : INet {
 	public string Name;
 	public UInt32 ID;
+	public UInt64 Seed;
+	public Entity[] Entities;
 
 	public void Serialize(BinaryWriter buffer) {
 		buffer.Write((Int32)this.Name.Length);
 		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
 		buffer.Write(this.ID);
+		buffer.Write(this.Seed);
+		buffer.Write((Int32)this.Entities.Length);
+		for (int v2 = 0; v2 < this.Entities.Length; v2++) {
+			this.Entities[v2].Serialize(buffer);
+		}
 	}
 
 	public void Deserialize(BinaryReader buffer) {
@@ -325,6 +332,13 @@ public class CreateGameResp : INet {
 		byte[] temp0_1 = buffer.ReadBytes(l0_1);
 		this.Name = System.Text.Encoding.UTF8.GetString(temp0_1);
 		this.ID = buffer.ReadUInt32();
+		this.Seed = buffer.ReadUInt64();
+		int l3_1 = buffer.ReadInt32();
+		this.Entities = new Entity[l3_1];
+		for (int v2 = 0; v2 < l3_1; v2++) {
+			this.Entities[v2] = new Entity();
+			this.Entities[v2].Deserialize(buffer);
+		}
 	}
 }
 
@@ -368,22 +382,34 @@ public class GameConnected : INet {
 
 public class Entity : INet {
 	public UInt32 ID;
+	public UInt16 EType;
+	public UInt64 Seed;
+	public UInt32 X;
+	public UInt32 Y;
+	public UInt32 Height;
+	public UInt32 Width;
 	public byte HealthPercent;
-	public Int32 X;
-	public Int32 Y;
 
 	public void Serialize(BinaryWriter buffer) {
 		buffer.Write(this.ID);
-		buffer.Write(this.HealthPercent);
+		buffer.Write(this.EType);
+		buffer.Write(this.Seed);
 		buffer.Write(this.X);
 		buffer.Write(this.Y);
+		buffer.Write(this.Height);
+		buffer.Write(this.Width);
+		buffer.Write(this.HealthPercent);
 	}
 
 	public void Deserialize(BinaryReader buffer) {
 		this.ID = buffer.ReadUInt32();
+		this.EType = buffer.ReadUInt16();
+		this.Seed = buffer.ReadUInt64();
+		this.X = buffer.ReadUInt32();
+		this.Y = buffer.ReadUInt32();
+		this.Height = buffer.ReadUInt32();
+		this.Width = buffer.ReadUInt32();
 		this.HealthPercent = buffer.ReadByte();
-		this.X = buffer.ReadInt32();
-		this.Y = buffer.ReadInt32();
 	}
 }
 
