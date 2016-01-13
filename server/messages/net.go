@@ -379,7 +379,7 @@ type GameConnected struct {
 }
 
 func (m *GameConnected) Serialize(buffer *bytes.Buffer) {
-	m.Seed.Serialize(buffer)
+	binary.Write(buffer, binary.LittleEndian, m.Seed)
 	binary.Write(buffer, binary.LittleEndian, int32(len(m.Entities)))
 	for _, v2 := range m.Entities {
 		v2.Serialize(buffer)

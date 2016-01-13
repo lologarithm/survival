@@ -79,7 +79,7 @@ func WriteGoSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, message
 		}
 		buf.WriteString(f.Name)
 		buf.WriteString(")\n")
-	case "int16", "int32", "uint16", "uint32":
+	case "int16", "int32", "uint16", "uint32", "int64", "uint64":
 		buf.WriteString("binary.Write(buffer, binary.LittleEndian, ")
 		if scopeDepth == 1 {
 			buf.WriteString("m.")
