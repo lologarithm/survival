@@ -21,7 +21,7 @@ const (
 type GameManager struct {
 	// Player data
 	Users      []*User
-	Games      []*Game
+	Games      map[uint32]*Game
 	NextGameID uint32 // TODO: this shouldn't just be a number..
 
 	FromGames   chan GameMessage // Manager reads this only, all games created write only
@@ -40,7 +40,7 @@ type GameManager struct {
 func NewGameManager(exit chan int, fromNetwork chan GameMessage, toNetwork chan OutgoingMessage) *GameManager {
 	gm := &GameManager{
 		Users:       make([]*User, math.MaxUint16),
-		Games:       make([]*Game, math.MaxUint16),
+		Games:       map[uint32]*Game{},
 		FromGames:   make(chan GameMessage, 100),
 		FromNetwork: fromNetwork,
 		ToNetwork:   toNetwork,
@@ -89,11 +89,8 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 			IDs:   []uint32{},
 			Names: []string{},
 		}
-		for idx, g := range gm.Games {
-			if idx == int(gm.NextGameID) {
-				break
-			}
-			gameList.IDs = append(gameList.IDs, uint32(idx))
+		for key, g := range gm.Games {
+			gameList.IDs = append(gameList.IDs, uint32(key))
 			gameList.Names = append(gameList.Names, g.Name)
 		}
 		resp := NewOutgoingMsg(msg.client, messages.ListGamesRespMsgType, gameList)

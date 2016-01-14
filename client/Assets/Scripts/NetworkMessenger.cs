@@ -14,8 +14,9 @@ public class NetworkMessenger : MonoBehaviour
     IPEndPoint sending_end_point;
 
     // Caching network state
-    private byte[] buff = new byte[1024];
-    private List<byte> stored_bytes = new List<byte>();
+	private byte[] buff = new byte[8192];
+	private byte[] stored_bytes = new byte[8192];
+	private int numStored = 0;
     private NetMessage current_message = null;
 
     private Queue<NetMessage> message_queue = new Queue<NetMessage>();
@@ -24,7 +25,6 @@ public class NetworkMessenger : MonoBehaviour
     void Start()
     {
 		Debug.Log("Starting network now!");
-        this.stored_bytes = new List<byte>();
         this.send_to_address = IPAddress.Parse("127.0.0.1");
         this.sending_end_point = new IPEndPoint(send_to_address, 24816);
         sending_socket.Connect(this.sending_end_point);
@@ -110,11 +110,15 @@ public class NetworkMessenger : MonoBehaviour
             //1. if ( connection.all_bytes.Count > 0 ) - Read int off front (package_size) 
             //2. while ( connection.all_bytes.Count + bytesRead >= package_size )
             //3. add buffer to all_bytes and then queue a message, delete bytes from all_bytes
-
-            byte[] subset_bytes = new byte[bytesRead];
-            Array.Copy(this.buff, 0, subset_bytes, 0, bytesRead);
-            this.stored_bytes.AddRange(subset_bytes);
+			if (this.stored_bytes.Length < this.numStored + bytesRead) {
+				byte[] newbuf = new byte[this.stored_bytes.Length*2];
+				Array.Copy(this.stored_bytes, 0, newbuf, 0, this.numStored);
+				this.stored_bytes = newbuf;
+			}
+			Array.Copy(this.buff, 0, this.stored_bytes, this.numStored, bytesRead);
+			this.numStored += bytesRead;
             ProcessBytes();
+			Debug.Log ("Proceessing done, receiving again!");
             sending_socket.BeginReceive(this.buff, 0, buff.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), null);
         }
         else
@@ -123,36 +127,22 @@ public class NetworkMessenger : MonoBehaviour
 
     private void ProcessBytes()
     {
-        byte[] input_bytes = this.stored_bytes.ToArray();
-        if (this.current_message == null)
+		byte[] input_bytes = new byte[this.numStored];
+		Array.Copy (this.stored_bytes, 0, input_bytes, 0, this.numStored);
+        NetMessage nMsg = NetMessage.fromBytes(input_bytes);
+        if (nMsg != null)
         {
-            NetMessage nMsg = NetMessage.fromBytes(input_bytes);
-            if (nMsg != null)
-            {
-                // Check for full content available. If so, time to add this to the processing queue.
-				if (nMsg.full_content.Length == nMsg.content_length + NetMessage.DEFAULT_FRAME_LEN) {
-					stored_bytes.RemoveRange (0, nMsg.full_content.Length);
-					this.message_queue.Enqueue (nMsg);
-					// If we have enough bytes to start a new message we call ProcessBytes again.
-					if (input_bytes.Length - nMsg.full_content.Length > NetMessage.DEFAULT_FRAME_LEN) {
-						ProcessBytes ();
-					}
+			Debug.Log ("Got a new netmsg: " + nMsg.message_type + " length: " + nMsg.content_length);
+			Debug.Log ("Total bytes available: " + input_bytes.Length);
+            // Check for full content available. If so, time to add this to the processing queue.
+			if (nMsg.full_content.Length == nMsg.content_length + NetMessage.DEFAULT_FRAME_LEN) {
+				this.numStored -= nMsg.full_content.Length;
+				this.message_queue.Enqueue(nMsg);
+				// If we have enough bytes to start a new message we call ProcessBytes again.
+				if (input_bytes.Length - nMsg.full_content.Length > NetMessage.DEFAULT_FRAME_LEN) {
+					ProcessBytes();
 				}
-            } else {
-                this.current_message = nMsg;
-                this.stored_bytes.RemoveRange(0, NetMessage.DEFAULT_FRAME_LEN);
-                // Leave this as the this.current_message
-            }
-        }
-        else {
-			Debug.Log ("already have a message, lets try to add more bytes!");
-            if (this.current_message.loadContent(input_bytes))
-            {
-                // We have enough bytes!
-                stored_bytes.RemoveRange(0, this.current_message.content_length);
-                this.message_queue.Enqueue(this.current_message);
-                this.current_message = null;
-            }
+			}
         }
         // We need to wait until later to finish loading!
     }
@@ -198,12 +188,17 @@ public class NetworkMessenger : MonoBehaviour
                         ni.Name = resp.Names[j];
                     }
                     break;
-                case MsgType.CreateGameResp:
-                    CreateGameResp cgr = ((CreateGameResp)parsedMsg);
-                    GameInstance gi = new GameInstance();
-                    gi.Name = cgr.Name;
-                    gi.ID = cgr.ID;
-                    games.Add(gi);
+				case MsgType.GameConnected:
+					GameConnected gc = ((GameConnected)parsedMsg);
+					break;
+				case MsgType.CreateGameResp:
+					CreateGameResp cgr = ((CreateGameResp)parsedMsg);
+					GameInstance gi = new GameInstance ();
+					gi.Name = cgr.Name;
+					gi.ID = cgr.ID;
+					gi.entities = cgr.Entities;
+					games.Add (gi);
+					Debug.Log ("Added game: " + gi.Name);
                     break;
             }
         }

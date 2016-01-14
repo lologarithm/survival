@@ -30,7 +30,7 @@ public class PlayerController : MonoBehaviour {
         }
 
         moveVector = moveVector.normalized;
-        Debug.Log(moveVector.ToString());
+        //Debug.Log(moveVector.ToString());
 
         foreach (ControlConst ability in ControlConst.Abilities)
         {

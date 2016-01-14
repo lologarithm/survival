@@ -66,7 +66,7 @@ func (s *Server) sendMessages() {
 		if n, err := s.conn.WriteToUDP(msg.msg.RawBytes, msg.dest.address); err != nil {
 			fmt.Println("Error: ", err, " Bytes Written: ", n)
 		} else {
-			log.Printf("Wrote %d bytes to %v.", n, msg.dest.address)
+			log.Printf("Wrote message %d with %d bytes to %v.", msg.msg.Frame.MsgType, n, msg.dest.address)
 		}
 	}
 }

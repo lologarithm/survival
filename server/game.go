@@ -112,9 +112,9 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 
 		oSeed := oh.Sum64()
 		// floor(bits 0:8 / 2.57) = rock X position relative to chunk
-		ox := uint32(float64(oSeed>>56) / 2.57)
+		ox := uint32(float64(oSeed>>56) * 2)
 		// floor(bits 8:16 / 2.57) = rock Y position relative to chunk
-		oy := uint32(float64((oSeed<<8)>>56) / 2.57)
+		oy := uint32(float64((oSeed<<8)>>56) * 2)
 
 		te := &Entity{
 			X:      ox,
@@ -160,9 +160,9 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 
 		oSeed := oh.Sum64()
 		// floor(bits 0:8 / 2.57) = tree X position relative to chunk
-		ox := uint32(float64(oSeed>>56) / 2.57)
+		ox := uint32(float64(oSeed>>56) * 2)
 		// floor(bits 8:16 / 2.57) = tree Y position relative to chunk
-		oy := uint32(float64((oSeed<<8)>>56) / 2.57)
+		oy := uint32(float64((oSeed<<8)>>56) * 2)
 
 		te := &Entity{
 			X:      ox,
