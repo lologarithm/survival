@@ -93,7 +93,9 @@ func BenchmarkServerParsing(b *testing.B) {
 	msgbytes := messageBytes.Bytes()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		fakeClient.FromNetwork <- msgbytes
+		cpbuf := make([]byte, len(msgbytes))
+		copy(cpbuf, msgbytes)
+		fakeClient.FromNetwork <- cpbuf
 		<-gamechan
 	}
 	log.Printf("test complete!")
