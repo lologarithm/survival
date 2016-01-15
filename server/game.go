@@ -35,6 +35,12 @@ type GameWorld struct {
 	Chunks   map[uint32]map[uint32]bool // list of chunks that have been already created.
 }
 
+// Simulator design:
+//  1. Needs to be able to represent position of each thing in time correctly.
+//  2. Probably want a simplified 2d physics simulator running to allow for things with velocity?
+//  3. Each tick should have an ID and should be rewindable (so we can insert updates in the past)
+//  4.
+
 func (gw *GameWorld) EntitiesMsg() []*messages.Entity {
 	es := make([]*messages.Entity, len(gw.Entities))
 	for idx, e := range gw.Entities {
@@ -43,8 +49,6 @@ func (gw *GameWorld) EntitiesMsg() []*messages.Entity {
 
 	return es
 }
-
-// TODO: Structure tiles?
 
 // Run starts the game!
 func (gm *Game) Run() {
