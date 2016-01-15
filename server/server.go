@@ -52,7 +52,9 @@ func (s *Server) handleMessage() {
 		}
 		go s.connections[addrkey].ProcessBytes(s.outToNetwork, s.disconnectPlayer)
 	}
-	s.connections[addrkey].FromNetwork <- s.inputBuffer[0:n]
+	cpbuf := make([]byte, n)
+	copy(cpbuf, s.inputBuffer[0:n])
+	s.connections[addrkey].FromNetwork <- cpbuf
 }
 
 func (s *Server) DisconnectConn(addrkey string) {
