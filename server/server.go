@@ -71,6 +71,7 @@ func (s *Server) sendMessages() {
 			if i == numMsg-1 {
 				b = len(msg.msg.RawBytes) % 512
 			}
+			// TODO: write frames for each piece with a message type of 'continue' maybe. (SEQ IS IMPORTANT!) 		msg.dest.Seq
 			if n, err := s.conn.WriteToUDP(msg.msg.RawBytes[st:st+b], msg.dest.address); err != nil {
 				fmt.Println("Error: ", err, " Bytes Written: ", n)
 			} else {
