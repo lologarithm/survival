@@ -44,16 +44,18 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 	for client.Alive {
 		msgFrame, ok := messages.ParseFrame(client.buffer[:client.wIdx])
 		numMsgBytes := messages.FrameLen + int(msgFrame.ContentLength)
+
+		if len(client.buffer) < numMsgBytes {
+			newBuffer := make([]byte, numMsgBytes*2)
+			copy(newBuffer, client.buffer)
+			client.buffer = newBuffer
+		}
+
 		if msgFrame.MsgType == 255 {
 			// TODO: this should probably not be a random 1off?
 			client.Alive = false
 			break
 		} else if !ok || numMsgBytes > client.wIdx {
-			if len(client.buffer) < client.wIdx+client.FromNetwork.Len() {
-				newBuffer := make([]byte, client.wIdx+client.FromNetwork.Len())
-				copy(newBuffer, client.buffer)
-				client.buffer = newBuffer
-			}
 			n := client.FromNetwork.Read(client.buffer[client.wIdx:])
 			client.wIdx += n
 			continue
