@@ -16,7 +16,7 @@ type Client struct {
 	address *net.UDPAddr
 
 	// These channels are written to by another process
-	FromNetwork     chan []byte          // Bytes from client to server
+	FromNetwork     *BytePipe            // Bytes from client to server
 	FromGameManager chan InternalMessage //
 
 	// These channels can be written to in the client but not read from.
@@ -42,47 +42,39 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 
 	var toGame chan<- GameMessage // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
 	for client.Alive {
-		select {
-		case bytes, ok := <-client.FromNetwork:
-			if !ok {
-				client.Alive = false
-				break
-			} else {
-				if len(client.buffer) < client.wIdx+len(bytes) {
-					newBuffer := make([]byte, client.wIdx+len(bytes))
-					copy(newBuffer, client.buffer)
-					client.buffer = newBuffer
-				}
-				copy(client.buffer[client.wIdx:], bytes)
-				client.wIdx += len(bytes)
-				msgFrame, ok := messages.ParseFrame(client.buffer[:client.wIdx])
-				numMsgBytes := messages.FrameLen + int(msgFrame.ContentLength)
-				if msgFrame.MsgType == 255 {
-					// TODO: this should probably not be a random 1off?
-					client.Alive = false
+		msgFrame, ok := messages.ParseFrame(client.buffer[:client.wIdx])
+		numMsgBytes := messages.FrameLen + int(msgFrame.ContentLength)
+		if msgFrame.MsgType == 255 {
+			// TODO: this should probably not be a random 1off?
+			client.Alive = false
+			break
+		} else if !ok || numMsgBytes > client.wIdx {
+			if len(client.buffer) < client.wIdx+client.FromNetwork.Len() {
+				newBuffer := make([]byte, client.wIdx+client.FromNetwork.Len())
+				copy(newBuffer, client.buffer)
+				client.buffer = newBuffer
+			}
+			n := client.FromNetwork.Read(client.buffer[client.wIdx:])
+			client.wIdx += n
+			continue
+		}
+		// Only try to parse if we have collected enough bytes.
+		if ok && numMsgBytes <= client.wIdx {
+			netMsg := messages.ParseNetMessage(msgFrame, client.buffer[messages.FrameLen:numMsgBytes])
+			switch msgFrame.MsgType {
+			case messages.CreateAcctMsgType, messages.LoginMsgType, messages.CreateCharMsgType, messages.DeleteCharMsgType, messages.ListGamesMsgType, messages.JoinGameMsgType, messages.CreateGameMsgType:
+				client.toGameManager <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
+			default:
+				if toGame == nil {
+					log.Printf("Client sent message type %d(%v) before in a game!", msgFrame.MsgType, netMsg)
 					break
 				}
-				// Only try to parse if we have collected enough bytes.
-				if ok && numMsgBytes <= len(client.buffer) {
-					netMsg := messages.ParseNetMessage(msgFrame, client.buffer[messages.FrameLen:numMsgBytes])
-					switch msgFrame.MsgType {
-					case messages.CreateAcctMsgType, messages.LoginMsgType, messages.CreateCharMsgType, messages.DeleteCharMsgType, messages.ListGamesMsgType, messages.JoinGameMsgType, messages.CreateGameMsgType:
-						client.toGameManager <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
-					default:
-						if toGame == nil {
-							log.Printf("Client sent message type %d(%v) before in a game!", msgFrame.MsgType, netMsg)
-							break
-						}
-						toGame <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
-					}
-
-					// Remove the used bytes from the buffer.
-					copy(client.buffer, client.buffer[numMsgBytes:])
-					client.wIdx -= numMsgBytes
-				}
+				toGame <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
 			}
-		case gmsg := <-client.FromGameManager:
-			toGame = gmsg.ToGame
+
+			// Remove the used bytes from the buffer.
+			copy(client.buffer, client.buffer[numMsgBytes:])
+			client.wIdx -= numMsgBytes
 		}
 	}
 	client.toGameManager <- GameMessage{

@@ -65,3 +65,36 @@ func TestBasicServer(t *testing.T) {
 	conn.Write([]byte{255, 0, 0, 0, 0})
 	conn.Close()
 }
+
+func BenchmarkServerParsing(b *testing.B) {
+	gamechan := make(chan GameMessage, 100)
+	outchan := make(chan OutgoingMessage, 100)
+	donechan := make(chan Client, 1)
+	fakeClient := &Client{
+		address:         &net.UDPAddr{},
+		FromNetwork:     NewBytePipe(0),
+		FromGameManager: make(chan InternalMessage, 10),
+		toGameManager:   gamechan,
+		ID:              1,
+	}
+	go fakeClient.ProcessBytes(outchan, donechan)
+
+	messageBytes := new(bytes.Buffer)
+	messageBytes.WriteByte(byte(messages.LoginMsgType))
+	binary.Write(messageBytes, binary.LittleEndian, uint16(0))
+	tbuf := new(bytes.Buffer)
+	msg := &messages.Login{
+		Name:     "test",
+		Password: "test",
+	}
+	msg.Serialize(tbuf)
+	binary.Write(messageBytes, binary.LittleEndian, uint16(tbuf.Len()))
+	tbuf.WriteTo(messageBytes)
+	msgbytes := messageBytes.Bytes()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fakeClient.FromNetwork.Write(msgbytes)
+		<-gamechan
+	}
+	log.Printf("test complete!")
+}

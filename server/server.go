@@ -45,18 +45,19 @@ func (s *Server) handleMessage() {
 		fmt.Printf("New Connection: %v, ID: %d\n", addrkey, s.clientID)
 		s.connections[addrkey] = &Client{
 			address:         addr,
-			FromNetwork:     make(chan []byte, 100),
+			FromNetwork:     NewBytePipe(0),
 			FromGameManager: make(chan InternalMessage, 10),
 			toGameManager:   s.toGameManager,
 			ID:              s.clientID,
 		}
 		go s.connections[addrkey].ProcessBytes(s.outToNetwork, s.disconnectPlayer)
 	}
-	s.connections[addrkey].FromNetwork <- s.inputBuffer[0:n]
+
+	s.connections[addrkey].FromNetwork.Write(s.inputBuffer[0:n])
 }
 
 func (s *Server) DisconnectConn(addrkey string) {
-	close(s.connections[addrkey].FromNetwork)
+	// close(s.connections[addrkey].FromNetwork)
 	delete(s.connections, addrkey)
 }
 
@@ -87,7 +88,7 @@ func RunServer(exit chan int) {
 
 	var s Server
 	s.connections = make(map[string]*Client, 512)
-	s.inputBuffer = make([]byte, 1024)
+	s.inputBuffer = make([]byte, 8092)
 	s.toGameManager = toGameManager
 	s.outToNetwork = outToNetwork
 	s.disconnectPlayer = make(chan Client, 512)
