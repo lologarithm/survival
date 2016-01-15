@@ -4,8 +4,10 @@ using Assets;
 
 public class PlayerController : MonoBehaviour {
 
-	// Use this for initialization
-	void Start () {
+    private NetworkMessenger msger;
+
+    // Use this for initialization
+    void Start () {
 	
 	}
 	

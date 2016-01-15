@@ -15,7 +15,7 @@ public class LevelMaker : MonoBehaviour {
 		for ( int i = 0; i < this.msger.games[0].entities.Length; i++) {
 			Entity e = this.msger.games [0].entities [i];
 			Transform tree = (Transform)Instantiate(this.treePrefab, new Vector3(e.X, 0, e.Y), Quaternion.identity);
-			tree.localScale = new Vector3 (e.Height, 1, e.Width);
+			tree.localScale = new Vector3 (e.Height, e.Height, e.Width);
 		}
 	}
 
