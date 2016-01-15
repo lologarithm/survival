@@ -64,10 +64,19 @@ func (s *Server) DisconnectConn(addrkey string) {
 func (s *Server) sendMessages() {
 	for {
 		msg := <-s.outToNetwork
-		if n, err := s.conn.WriteToUDP(msg.msg.RawBytes, msg.dest.address); err != nil {
-			fmt.Println("Error: ", err, " Bytes Written: ", n)
-		} else {
-			log.Printf("Wrote message %d with %d bytes to %v.", msg.msg.Frame.MsgType, n, msg.dest.address)
+		numMsg := (len(msg.msg.RawBytes) / 512) + 1
+		st := 0
+		b := 512
+		for i := 0; i < numMsg; i++ {
+			if i == numMsg-1 {
+				b = len(msg.msg.RawBytes) % 512
+			}
+			if n, err := s.conn.WriteToUDP(msg.msg.RawBytes[st:st+b], msg.dest.address); err != nil {
+				fmt.Println("Error: ", err, " Bytes Written: ", n)
+			} else {
+				log.Printf("Wrote message %d with %d bytes to %v.", msg.msg.Frame.MsgType, n, msg.dest.address)
+			}
+			st += b
 		}
 	}
 }

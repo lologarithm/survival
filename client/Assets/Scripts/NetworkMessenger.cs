@@ -118,7 +118,6 @@ public class NetworkMessenger : MonoBehaviour
 			Array.Copy(this.buff, 0, this.stored_bytes, this.numStored, bytesRead);
 			this.numStored += bytesRead;
             ProcessBytes();
-			Debug.Log ("Proceessing done, receiving again!");
             sending_socket.BeginReceive(this.buff, 0, buff.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), null);
         }
         else
@@ -133,9 +132,8 @@ public class NetworkMessenger : MonoBehaviour
         if (nMsg != null)
         {
 			Debug.Log ("Got a new netmsg: " + nMsg.message_type + " length: " + nMsg.content_length);
-			Debug.Log ("Total bytes available: " + input_bytes.Length);
             // Check for full content available. If so, time to add this to the processing queue.
-			if (nMsg.full_content.Length == nMsg.content_length + NetMessage.DEFAULT_FRAME_LEN) {
+			if (nMsg.full_content != null) {
 				this.numStored -= nMsg.full_content.Length;
 				this.message_queue.Enqueue(nMsg);
 				// If we have enough bytes to start a new message we call ProcessBytes again.
@@ -144,7 +142,6 @@ public class NetworkMessenger : MonoBehaviour
 				}
 			}
         }
-        // We need to wait until later to finish loading!
     }
 
     public List<Character> characters = new List<Character>();
