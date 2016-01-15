@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"runtime"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 )
 
 func TestBasicServer(t *testing.T) {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	exit := make(chan int, 1)
 
 	fmt.Println("Starting Server!")
@@ -64,6 +66,62 @@ func TestBasicServer(t *testing.T) {
 	}
 	conn.Write([]byte{255, 0, 0, 0, 0})
 	conn.Close()
+}
+
+func TestCrazyLoad(t *testing.T) {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	time.Sleep(time.Millisecond * 100)
+
+	for i := 0; i < 2000; i++ {
+		go sendMessages()
+		time.Sleep(time.Millisecond * 1)
+	}
+	time.Sleep(time.Second * 100)
+}
+
+func sendMessages() {
+	ra, err := net.ResolveUDPAddr("udp", "localhost:24816")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	conn, err := net.DialUDP("udp", nil, ra)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	messageBytes := new(bytes.Buffer)
+	messageBytes.WriteByte(byte(messages.LoginMsgType))
+	binary.Write(messageBytes, binary.LittleEndian, uint16(0))
+	tbuf := new(bytes.Buffer)
+	msg := &messages.Login{
+		Name:     "testuser",
+		Password: "testingtest",
+	}
+	msg.Serialize(tbuf)
+	binary.Write(messageBytes, binary.LittleEndian, uint16(tbuf.Len()))
+	tbuf.WriteTo(messageBytes)
+	msgbytes := messageBytes.Bytes()
+
+	go func() {
+		buf := make([]byte, 1024)
+		_, err := conn.Read(buf[0:])
+		if err != nil {
+			fmt.Printf("Failed to read from conn.")
+			fmt.Println(err)
+			return
+		}
+	}()
+
+	for {
+		_, err = conn.Write(msgbytes)
+		if err != nil {
+			fmt.Printf("Failed to write to connection.")
+			fmt.Println(err)
+		}
+		time.Sleep(time.Millisecond * 100)
+	}
 }
 
 func BenchmarkServerParsing(b *testing.B) {

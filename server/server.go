@@ -42,7 +42,7 @@ func (s *Server) handleMessage() {
 	}
 	if _, ok := s.connections[addrkey]; !ok {
 		s.clientID++
-		fmt.Printf("New Connection: %v, ID: %d\n", addrkey, s.clientID)
+		// fmt.Printf("New Connection: %v, ID: %d\n", addrkey, s.clientID)
 		s.connections[addrkey] = &Client{
 			address:         addr,
 			FromNetwork:     NewBytePipe(0),
@@ -75,7 +75,7 @@ func (s *Server) sendMessages() {
 			if n, err := s.conn.WriteToUDP(msg.msg.RawBytes[st:st+b], msg.dest.address); err != nil {
 				fmt.Println("Error: ", err, " Bytes Written: ", n)
 			} else {
-				log.Printf("Wrote message %d with %d bytes to %v.", msg.msg.Frame.MsgType, n, msg.dest.address)
+				// log.Printf("Wrote message %d with %d bytes to %v.", msg.msg.Frame.MsgType, n, msg.dest.address)
 			}
 			st += b
 		}
