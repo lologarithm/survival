@@ -63,10 +63,10 @@ func (s *Server) DisconnectConn(addrkey string) {
 func (s *Server) sendMessages() {
 	for {
 		msg := <-s.outToNetwork
-		if n, err := s.conn.WriteToUDP(msg.msg.RawBytes, msg.dest.address); err != nil {
+		if n, err := s.conn.WriteToUDP(msg.msg.Pack(), msg.dest.address); err != nil {
 			fmt.Println("Error: ", err, " Bytes Written: ", n)
 		} else {
-			// log.Printf("Wrote message %d with %d bytes to %v.", msg.msg.Frame.MsgType, n, msg.dest.address)
+			// log.Printf("Wrote message (%v) with %d bytes to %v.", msg.msg.Pack(), n, msg.dest.address)
 		}
 	}
 }
@@ -117,5 +117,5 @@ func RunServer(exit chan int) {
 
 type OutgoingMessage struct {
 	dest *Client
-	msg  messages.Message
+	msg  messages.Packet
 }

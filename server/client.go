@@ -55,30 +55,23 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 				}
 				copy(client.buffer[client.wIdx:], bytes)
 				client.wIdx += len(bytes)
-				msgFrame, ok := messages.ParseFrame(client.buffer[:client.wIdx])
-				numMsgBytes := messages.FrameLen + int(msgFrame.ContentLength)
-				if msgFrame.MsgType == 255 {
-					// TODO: this should probably not be a random 1off?
-					client.Alive = false
-					break
-				}
+				packet, ok := messages.NextPacket(client.buffer[:client.wIdx])
 				// Only try to parse if we have collected enough bytes.
-				if ok && numMsgBytes <= len(client.buffer) {
-					netMsg := messages.ParseNetMessage(msgFrame, client.buffer[messages.FrameLen:numMsgBytes])
-					switch msgFrame.MsgType {
+				if ok {
+					switch packet.Frame.MsgType {
 					case messages.CreateAcctMsgType, messages.LoginMsgType, messages.CreateCharMsgType, messages.DeleteCharMsgType, messages.ListGamesMsgType, messages.JoinGameMsgType, messages.CreateGameMsgType:
-						client.toGameManager <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
+						client.toGameManager <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
 					default:
 						if toGame == nil {
-							log.Printf("Client sent message type %d(%v) before in a game!", msgFrame.MsgType, netMsg)
+							log.Printf("Client sent message type %d(%v) before in a game!", packet.Frame.MsgType, packet.NetMsg)
 							break
 						}
-						toGame <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
+						toGame <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
 					}
 
 					// Remove the used bytes from the buffer.
-					copy(client.buffer, client.buffer[numMsgBytes:])
-					client.wIdx -= numMsgBytes
+					copy(client.buffer, client.buffer[packet.Len():])
+					client.wIdx -= packet.Len()
 				}
 			}
 		case gmsg := <-client.FromGameManager:

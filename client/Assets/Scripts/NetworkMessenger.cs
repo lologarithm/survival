@@ -17,7 +17,6 @@ public class NetworkMessenger : MonoBehaviour
 	private byte[] buff = new byte[8192];
 	private byte[] stored_bytes = new byte[8192];
 	private int numStored = 0;
-    private NetMessage current_message = null;
 
     private Queue<NetMessage> message_queue = new Queue<NetMessage>();
 
@@ -54,7 +53,7 @@ public class NetworkMessenger : MonoBehaviour
 		msg.content = stream.ToArray();
 		msg.content_length = (UInt16)msg.content.Length;
 		msg.message_type = (byte)t;
-		this.sending_socket.Send(msg.MessageBytes());	
+		this.sending_socket.Send(msg.MessageBytes());
 	}
 
 	public void CreateAccount(string name, string password) {
@@ -107,7 +106,7 @@ public class NetworkMessenger : MonoBehaviour
         if (bytesRead > 0)
         {
             //0. Add buffer to all_bytes
-            //1. if ( connection.all_bytes.Count > 0 ) - Read int off front (package_size) 
+            //1. if ( connection.all_bytes.Count > 0 ) - Read int off front (package_size)
             //2. while ( connection.all_bytes.Count + bytesRead >= package_size )
             //3. add buffer to all_bytes and then queue a message, delete bytes from all_bytes
 			if (this.stored_bytes.Length < this.numStored + bytesRead) {
@@ -190,6 +189,7 @@ public class NetworkMessenger : MonoBehaviour
                     break;
 				case MsgType.GameConnected:
 					GameConnected gc = ((GameConnected)parsedMsg);
+					// TODO: handle connecting to a game!
 					break;
 				case MsgType.CreateGameResp:
 					CreateGameResp cgr = ((CreateGameResp)parsedMsg);
@@ -207,7 +207,7 @@ public class NetworkMessenger : MonoBehaviour
     void CloseConnection()
     {
 		if (sending_socket.Connected) {
-			sending_socket.Send (new byte[] { 255, 0, 0, 0, 0, 0, 0 });
+			// sending_socket.Send (new byte[] { 255, 0, 0, 0, 0, 0, 0 }); // TODO: create a disconnect message.
 			sending_socket.Close ();
 		}
     }
@@ -233,12 +233,12 @@ public class GameInstance
 
 public class NetMessage
 {
-    public const int DEFAULT_FRAME_LEN = 5;
+    public const int DEFAULT_FRAME_LEN = 6;
 
-    public byte message_type;
-    public Int32 from_player;
-    public UInt16 content_length;
-    public UInt16 sequence;
+    public ushort message_type;
+    public int from_player;
+    public ushort content_length;
+    public ushort sequence;
     public byte[] content;
     public byte[] full_content;
 
@@ -270,11 +270,11 @@ public class NetMessage
         if (bytes.Length >= DEFAULT_FRAME_LEN)
         {
             newMsg = new NetMessage();
-            newMsg.message_type = bytes[0];
-            newMsg.sequence = BitConverter.ToUInt16(bytes, 1);
-            newMsg.content_length = BitConverter.ToUInt16(bytes, 3);
+			newMsg.message_type = BitConverter.ToUInt16(bytes, 0);
+            newMsg.sequence = BitConverter.ToUInt16(bytes, 2);
+            newMsg.content_length = BitConverter.ToUInt16(bytes, 4);
 
-			int totalLen = DEFAULT_FRAME_LEN + newMsg.content_length; 
+			int totalLen = DEFAULT_FRAME_LEN + newMsg.content_length;
             if (bytes.Length >= totalLen)
             {
 				newMsg.full_content = new byte[totalLen];
