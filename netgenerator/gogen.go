@@ -10,9 +10,9 @@ func WriteGo(messages []Message, messageMap map[string]Message) {
 	gobuf := &bytes.Buffer{}
 	gobuf.WriteString("package messages\n\nimport (\n\t\"bytes\"\n\t\"encoding/binary\"\n\t\"log\"\n)\n\n")
 	// 1. List type values!
-	gobuf.WriteString("type Net interface {\n\tSerialize(*bytes.Buffer)\n\tDeserialize(*bytes.Buffer)\n}\n\n")
-	gobuf.WriteString("type MessageType byte\n\n")
-	gobuf.WriteString("const (\n\tUnknownMsgType MessageType = iota\n")
+	gobuf.WriteString("type Net interface {\n\tSerialize(*bytes.Buffer)\n\tDeserialize(*bytes.Buffer)\n\tLen() int\n}\n\n")
+	gobuf.WriteString("type MessageType uint16\n\n")
+	gobuf.WriteString("const (\n\tUnknownMsgType MessageType = iota\n\tAckMsgType\n\tContinuedMsgType\n")
 	for _, t := range messages {
 		gobuf.WriteString("\t")
 		gobuf.WriteString(t.Name)
@@ -22,9 +22,9 @@ func WriteGo(messages []Message, messageMap map[string]Message) {
 
 	// 1.a. Parent parser function
 	gobuf.WriteString("// ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.\n")
-	gobuf.WriteString("func ParseNetMessage(msgFrame Frame, content []byte) Net {\n")
+	gobuf.WriteString("func ParseNetMessage(packet Packet, content []byte) Net {\n")
 	gobuf.WriteString("\tvar msg Net\n")
-	gobuf.WriteString("\tswitch msgFrame.MsgType {\n")
+	gobuf.WriteString("\tswitch packet.Frame.MsgType {\n")
 	for _, t := range messages {
 		gobuf.WriteString("\tcase ")
 		gobuf.WriteString(t.Name)
@@ -33,7 +33,7 @@ func WriteGo(messages []Message, messageMap map[string]Message) {
 		gobuf.WriteString(t.Name)
 		gobuf.WriteString("{}\n")
 	}
-	gobuf.WriteString("\tdefault:\n\t\tlog.Printf(\"Unknown message type: %d\", msgFrame.MsgType)\n\t}\n\tmsg.Deserialize(bytes.NewBuffer(content))\n\treturn msg\n}\n\n")
+	gobuf.WriteString("\tdefault:\n\t\tlog.Printf(\"Unknown message type: %d\", packet.Frame.MsgType)\n\t}\n\tmsg.Deserialize(bytes.NewBuffer(content))\n\treturn msg\n}\n\n")
 
 	// 2. Generate go classes
 	for _, msg := range messages {
@@ -63,8 +63,67 @@ func WriteGo(messages []Message, messageMap map[string]Message) {
 		}
 		gobuf.WriteString("}\n\n")
 
+		gobuf.WriteString("func (m *")
+		gobuf.WriteString(msg.Name)
+		gobuf.WriteString(") Len() int {\n\tmylen := 0\n")
+		for _, f := range msg.Fields {
+			WriteGoLen(f, 1, gobuf, messageMap)
+		}
+		gobuf.WriteString("\treturn mylen\n}\n\n")
 	}
 	ioutil.WriteFile("../server/messages/net.go", gobuf.Bytes(), 0775)
+}
+
+func WriteGoLen(f MessageField, scopeDepth int, buf *bytes.Buffer, messages map[string]Message) {
+	for i := 0; i < scopeDepth; i++ {
+		buf.WriteString("\t")
+	}
+	switch f.Type {
+	case "byte":
+		buf.WriteString("mylen += 1")
+	case "uint16", "int16":
+		buf.WriteString("mylen += 2")
+	case "uint32", "int32":
+		buf.WriteString("mylen += 4")
+	case "uint64", "int64":
+		buf.WriteString("mylen += 8")
+	case "string":
+		buf.WriteString("mylen += 4 + len(")
+		if scopeDepth == 1 {
+			buf.WriteString("m.")
+		}
+		buf.WriteString(f.Name)
+		buf.WriteString(")")
+	default:
+		if f.Type[:2] == "[]" {
+			buf.WriteString("mylen += 4\n\t")
+			fn := "v" + strconv.Itoa(scopeDepth+1)
+			buf.WriteString("for _, ")
+			buf.WriteString(fn)
+			buf.WriteString(" := range ")
+			if scopeDepth == 1 {
+				buf.WriteString("m.")
+			}
+			buf.WriteString(f.Name)
+			buf.WriteString(" {\n")
+			buf.WriteString("\t_ = ")
+			buf.WriteString(fn)
+			buf.WriteString("\n")
+			WriteGoLen(MessageField{Name: fn, Type: f.Type[2:], Order: f.Order}, scopeDepth+1, buf, messages)
+			for i := 0; i < scopeDepth; i++ {
+				buf.WriteString("\t")
+			}
+			buf.WriteString("}\n")
+		} else {
+			buf.WriteString("mylen += ")
+			if scopeDepth == 1 {
+				buf.WriteString("m.")
+			}
+			buf.WriteString(f.Name)
+			buf.WriteString(".Len()")
+		}
+	}
+	buf.WriteString("\n")
 }
 
 func WriteGoSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, messages map[string]Message) {

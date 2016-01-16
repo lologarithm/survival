@@ -5,6 +5,8 @@ import (
 	"sync/atomic"
 )
 
+// TODO: Add an 'alive' property so that a 'close' call stops the listeners.
+
 type BytePipe struct {
 	buf  []byte
 	r    int32

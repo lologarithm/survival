@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"log"
 	"math"
 
@@ -197,7 +196,6 @@ func (gm *GameManager) loginUser(msg GameMessage) {
 		Success: 0,
 		Name:    tmsg.Name,
 	}
-
 	if acct, ok := gm.AcctByName[tmsg.Name]; ok {
 		if acct.Password == tmsg.Password {
 			log.Printf("Logging in account: %s", tmsg.Name)
@@ -223,19 +221,17 @@ func (gm *GameManager) ProcessGameMsg(msg GameMessage) {
 
 // NewOutgoingMsg creates a new message that can be sent to a specific client.
 func NewOutgoingMsg(dest *Client, tp messages.MessageType, msg messages.Net) OutgoingMessage {
-	buf := new(bytes.Buffer)
-	msg.Serialize(buf)
 	frame := messages.Frame{
 		MsgType:       tp,
 		Seq:           1,
-		ContentLength: uint16(buf.Len()),
+		ContentLength: uint16(msg.Len()),
 	}
 	resp := OutgoingMessage{
 		dest: dest,
-		msg: messages.Message{
-			Frame: frame,
+		msg: messages.Packet{
+			Frame:  frame,
+			NetMsg: msg,
 		},
 	}
-	resp.msg.CreateMessageBytes(buf.Bytes())
 	return resp
 }

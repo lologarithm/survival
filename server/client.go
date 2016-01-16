@@ -42,41 +42,40 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 
 	var toGame chan<- GameMessage // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
 	for client.Alive {
-		msgFrame, ok := messages.ParseFrame(client.buffer[:client.wIdx])
-		numMsgBytes := messages.FrameLen + int(msgFrame.ContentLength)
+		packet, ok := messages.NextPacket(client.buffer[:client.wIdx])
 
-		if len(client.buffer) < numMsgBytes {
-			newBuffer := make([]byte, numMsgBytes*2)
+		if len(client.buffer) < packet.Len() {
+			newBuffer := make([]byte, packet.Len()*2)
 			copy(newBuffer, client.buffer)
 			client.buffer = newBuffer
 		}
 
-		if msgFrame.MsgType == 255 {
+		if packet.Frame.MsgType == 255 {
 			// TODO: this should probably not be a random 1off?
 			client.Alive = false
 			break
-		} else if !ok || numMsgBytes > client.wIdx {
+		} else if !ok || packet.Len() > client.wIdx {
+			// This means we need more data still.
 			n := client.FromNetwork.Read(client.buffer[client.wIdx:])
 			client.wIdx += n
 			continue
 		}
 		// Only try to parse if we have collected enough bytes.
-		if ok && numMsgBytes <= client.wIdx {
-			netMsg := messages.ParseNetMessage(msgFrame, client.buffer[messages.FrameLen:numMsgBytes])
-			switch msgFrame.MsgType {
+		if ok {
+			switch packet.Frame.MsgType {
 			case messages.CreateAcctMsgType, messages.LoginMsgType, messages.CreateCharMsgType, messages.DeleteCharMsgType, messages.ListGamesMsgType, messages.JoinGameMsgType, messages.CreateGameMsgType:
-				client.toGameManager <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
+				client.toGameManager <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
 			default:
 				if toGame == nil {
-					log.Printf("Client sent message type %d(%v) before in a game!", msgFrame.MsgType, netMsg)
+					log.Printf("Client sent message type %d(%v) before in a game!", packet.Frame.MsgType, packet.NetMsg)
 					break
 				}
-				toGame <- GameMessage{net: netMsg, client: client, mtype: msgFrame.MsgType}
+				toGame <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
 			}
 
 			// Remove the used bytes from the buffer.
-			copy(client.buffer, client.buffer[numMsgBytes:])
-			client.wIdx -= numMsgBytes
+			copy(client.buffer, client.buffer[packet.Len():])
+			client.wIdx -= packet.Len()
 		}
 	}
 	client.toGameManager <- GameMessage{

@@ -14,13 +14,8 @@ import (
 )
 
 func TestBasicServer(t *testing.T) {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	exit := make(chan int, 1)
-
-	fmt.Println("Starting Server!")
-	// Launch server manager
+	exit := make(chan int, 10)
 	go RunServer(exit)
-
 	time.Sleep(time.Millisecond * 100)
 	ra, err := net.ResolveUDPAddr("udp", "localhost:24816")
 	if err != nil {
@@ -32,22 +27,19 @@ func TestBasicServer(t *testing.T) {
 		fmt.Println(err)
 		t.FailNow()
 	}
-	//fmt.Println("Connection Complete")
-	messageBytes := new(bytes.Buffer)
-	messageBytes.WriteByte(byte(messages.LoginMsgType))
-	binary.Write(messageBytes, binary.LittleEndian, uint16(0))
-
-	tbuf := new(bytes.Buffer)
-	msg := &messages.Login{
+	netmsg := &messages.Login{
 		Name:     "testuser",
-		Password: "test",
+		Password: "testpass",
 	}
-	msg.Serialize(tbuf)
-
-	binary.Write(messageBytes, binary.LittleEndian, uint16(tbuf.Len()))
-	tbuf.WriteTo(messageBytes)
-	log.Printf("Writing Msg: %v", messageBytes.Bytes())
-	_, err = conn.Write(messageBytes.Bytes())
+	packet := messages.Packet{
+		Frame: messages.Frame{
+			MsgType:       messages.LoginMsgType,
+			ContentLength: uint16(netmsg.Len()),
+		},
+		NetMsg: netmsg,
+	}
+	msgBytes := packet.Pack()
+	_, err = conn.Write(msgBytes)
 	if err != nil {
 		fmt.Printf("Failed to write to connection.")
 		fmt.Println(err)
@@ -72,11 +64,12 @@ func TestCrazyLoad(t *testing.T) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	time.Sleep(time.Millisecond * 100)
 
-	for i := 0; i < 2000; i++ {
+	for i := 0; i < 3000; i++ {
 		go sendMessages()
 		time.Sleep(time.Millisecond * 1)
 	}
-	time.Sleep(time.Second * 100)
+	// run for 2 minutes
+	time.Sleep(time.Second * 60)
 }
 
 func sendMessages() {
@@ -91,26 +84,38 @@ func sendMessages() {
 		return
 	}
 
-	messageBytes := new(bytes.Buffer)
-	messageBytes.WriteByte(byte(messages.LoginMsgType))
-	binary.Write(messageBytes, binary.LittleEndian, uint16(0))
-	tbuf := new(bytes.Buffer)
-	msg := &messages.Login{
+	netmsg := &messages.Login{
 		Name:     "testuser",
-		Password: "testingtest",
+		Password: "testpass",
 	}
-	msg.Serialize(tbuf)
-	binary.Write(messageBytes, binary.LittleEndian, uint16(tbuf.Len()))
-	tbuf.WriteTo(messageBytes)
-	msgbytes := messageBytes.Bytes()
+	packet := messages.Packet{
+		Frame: messages.Frame{
+			MsgType:       messages.LoginMsgType,
+			ContentLength: uint16(netmsg.Len()),
+		},
+		NetMsg: netmsg,
+	}
+	msgbytes := packet.Pack()
 
 	go func() {
+		widx := 0
 		buf := make([]byte, 1024)
-		_, err := conn.Read(buf[0:])
-		if err != nil {
-			fmt.Printf("Failed to read from conn.")
-			fmt.Println(err)
-			return
+		for {
+			n, err := conn.Read(buf[widx:])
+			if err != nil {
+				fmt.Printf("Failed to read from conn.")
+				fmt.Println(err)
+				return
+			}
+			widx += n
+			for {
+				pack, ok := messages.NextPacket(buf[:widx])
+				if !ok {
+					break
+				}
+				copy(buf, buf[pack.Len():])
+				widx -= pack.Len()
+			}
 		}
 	}()
 
