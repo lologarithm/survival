@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"log"
 	"net"
+	"sync/atomic"
+	"unsafe"
 
 	"github.com/lologarithm/survival/server/messages"
 )
 
+// Client represents a single connection to the server.
+// Theoretically this could support multiple accounts logged in together (local coop)
 type Client struct {
 	ID      uint32 // Unique ID for this session
 	buffer  []byte
@@ -43,6 +47,11 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 	partialMessages := map[uint32][]*messages.Multipart{}
 
 	var toGame chan<- GameMessage // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
+
+	go func() {
+		msg := <-client.FromGameManager
+		atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&toGame)), unsafe.Pointer(&msg.ToGame))
+	}()
 	for client.Alive {
 		packet, ok := messages.NextPacket(client.buffer[:client.wIdx])
 

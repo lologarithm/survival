@@ -28,21 +28,18 @@ type Game struct {
 	Status GameStatus
 
 	// Private
-	World GameWorld
+	World *GameWorld
 }
 
+// GameWorld represents all the data in the world.
+// Physical entities and the physics simulation.
 type GameWorld struct {
 	Entities []*Entity
 	Chunks   map[uint32]map[uint32]bool // list of chunks that have been already created.
 	Space    *physics.SimulatedSpace
 }
 
-// Simulator design:
-//  1. Needs to be able to represent position of each thing in time correctly.
-//  2. Probably want a simplified 2d physics simulator running to allow for things with velocity?
-//  3. Each tick should have an ID and should be rewindable (so we can insert updates in the past)
-//  4.
-
+// EntitiesMsg converts all entities in the world to a network message.
 func (gw *GameWorld) EntitiesMsg() []*messages.Entity {
 	es := make([]*messages.Entity, len(gw.Entities))
 	for idx, e := range gw.Entities {
@@ -80,6 +77,7 @@ func (gm *Game) Run() {
 	}
 }
 
+// SpawnChunk creates all the entities for a chunk at the given x/y
 func (gm *Game) SpawnChunk(x, y uint32) {
 	h := xxhash.New64()
 	tb := make([]byte, 8)
@@ -224,12 +222,13 @@ func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan G
 		IntoGameManager: toGameManager,
 		FromNetwork:     fromNetwork,
 		Seed:            seed,
-		World:           GameWorld{},
+		World:           &GameWorld{},
 	}
 	// go g.Run()
 	return g
 }
 
+// Entity represents a single object in the game.
 type Entity struct {
 	ID     uint32
 	EType  uint16
@@ -253,6 +252,7 @@ func (e *Entity) toMsg() *messages.Entity {
 	return o
 }
 
+// Intersects calculates if two entities overlap -- used currently for chunk generation.
 func (e *Entity) Intersects(o *Entity) bool {
 	if e.Body.Position.X > o.Body.Position.X+o.Width || e.Body.Position.X+e.Width < o.Body.Position.X || e.Body.Position.Y > o.Body.Position.Y+o.Height || e.Body.Position.Y+e.Height < o.Body.Position.Y {
 		return false
@@ -260,13 +260,14 @@ func (e *Entity) Intersects(o *Entity) bool {
 	return true
 }
 
+// GameMessage is a message from a client to a game.
 type GameMessage struct {
 	net    messages.Net
 	client *Client
 	mtype  messages.MessageType
 }
 
-// TODO: Is this needed?
+// InternalMessage TODO: Is this needed?
 type InternalMessage struct {
 	ToGame chan<- GameMessage
 }

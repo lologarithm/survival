@@ -644,40 +644,56 @@ func (m *Entity) Len() int {
 }
 
 type EntityMove struct {
-	Direction byte
+	EntityID uint32
+	TickID uint32
+	Direction uint16
 }
 
 func (m *EntityMove) Serialize(buffer *bytes.Buffer) {
-	buffer.WriteByte(m.Direction)
+	binary.Write(buffer, binary.LittleEndian, m.EntityID)
+	binary.Write(buffer, binary.LittleEndian, m.TickID)
+	binary.Write(buffer, binary.LittleEndian, m.Direction)
 }
 
 func (m *EntityMove) Deserialize(buffer *bytes.Buffer) {
-	m.Direction, _ = buffer.ReadByte()
+	binary.Read(buffer, binary.LittleEndian, &m.EntityID)
+	binary.Read(buffer, binary.LittleEndian, &m.TickID)
+	binary.Read(buffer, binary.LittleEndian, &m.Direction)
 }
 
 func (m *EntityMove) Len() int {
 	mylen := 0
-	mylen += 1
+	mylen += 4
+	mylen += 4
+	mylen += 2
 	return mylen
 }
 
 type UseAbility struct {
-	AbilityID int32
+	EntityID uint32
+	AbilityID uint32
+	TickID uint32
 	Target uint32
 }
 
 func (m *UseAbility) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, m.EntityID)
 	binary.Write(buffer, binary.LittleEndian, m.AbilityID)
+	binary.Write(buffer, binary.LittleEndian, m.TickID)
 	binary.Write(buffer, binary.LittleEndian, m.Target)
 }
 
 func (m *UseAbility) Deserialize(buffer *bytes.Buffer) {
+	binary.Read(buffer, binary.LittleEndian, &m.EntityID)
 	binary.Read(buffer, binary.LittleEndian, &m.AbilityID)
+	binary.Read(buffer, binary.LittleEndian, &m.TickID)
 	binary.Read(buffer, binary.LittleEndian, &m.Target)
 }
 
 func (m *UseAbility) Len() int {
 	mylen := 0
+	mylen += 4
+	mylen += 4
 	mylen += 4
 	mylen += 4
 	return mylen

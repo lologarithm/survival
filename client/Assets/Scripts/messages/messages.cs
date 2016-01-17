@@ -454,28 +454,40 @@ public class Entity : INet {
 }
 
 public class EntityMove : INet {
-	public byte Direction;
+	public uint EntityID;
+	public uint TickID;
+	public ushort Direction;
 
 	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.EntityID);
+		buffer.Write(this.TickID);
 		buffer.Write(this.Direction);
 	}
 
 	public void Deserialize(BinaryReader buffer) {
-		this.Direction = buffer.ReadByte();
+		this.EntityID = buffer.ReadUInt32();
+		this.TickID = buffer.ReadUInt32();
+		this.Direction = buffer.ReadUInt16();
 	}
 }
 
 public class UseAbility : INet {
-	public int AbilityID;
+	public uint EntityID;
+	public uint AbilityID;
+	public uint TickID;
 	public uint Target;
 
 	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.EntityID);
 		buffer.Write(this.AbilityID);
+		buffer.Write(this.TickID);
 		buffer.Write(this.Target);
 	}
 
 	public void Deserialize(BinaryReader buffer) {
-		this.AbilityID = buffer.ReadInt32();
+		this.EntityID = buffer.ReadUInt32();
+		this.AbilityID = buffer.ReadUInt32();
+		this.TickID = buffer.ReadUInt32();
 		this.Target = buffer.ReadUInt32();
 	}
 }

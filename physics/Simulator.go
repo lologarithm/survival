@@ -16,10 +16,17 @@ const (
 	UpdateCollision = byte(5)
 )
 
+// Simulator design:
+//  1. Needs to be able to represent position of each thing in time correctly.
+//  2. Probably want a simplified 2d physics simulator running to allow for things with velocity?
+//  3. Each tick should have an ID and should be rewindable (so we can insert updates in the past)
+//  4.
+
 type SimulatedSpace struct {
 	Entities   map[uint32]*RigidBody // Anything that can collide in the playspace
 	Fixed      map[uint32]*RigidBody // Anything that can collide but is fixed in place.
 	lastUpdate time.Time
+	TickID     uint32
 }
 
 func (ss *SimulatedSpace) AddEntity(body *RigidBody, fixed bool) {
@@ -31,6 +38,7 @@ func (ss *SimulatedSpace) AddEntity(body *RigidBody, fixed bool) {
 }
 
 func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
+	ss.TickID++
 	ss.lastUpdate = time.Now()
 	var changeList []PhysicsEntityUpdate
 	if sendUpdate {

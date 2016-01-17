@@ -95,11 +95,15 @@ class Entity {
 }
 
 class EntityMove {
- Direction byte
+ EntityID uint32
+ TickID uint32
+ Direction uint16
 }
 
 class UseAbility {
- AbilityID int32
+ EntityID uint32
+ AbilityID uint32
+ TickID uint32
  Target uint32
 }
 

@@ -8,6 +8,16 @@ import (
 
 const FrameLen int = 6
 
+func NewPacket(t MessageType, msg Net) *Packet {
+	return &Packet{
+		Frame: Frame{
+			MsgType:       t,
+			ContentLength: uint16(msg.Len()),
+		},
+		NetMsg: msg,
+	}
+}
+
 type Packet struct {
 	Frame  Frame
 	NetMsg Net
