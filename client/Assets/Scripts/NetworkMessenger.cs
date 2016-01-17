@@ -20,8 +20,8 @@ public class NetworkMessenger : MonoBehaviour
 
 
 	private Queue<NetPacket> message_queue = new Queue<NetPacket>();
-	private Dictionary<uint, List<Multipart>> multipart_cache = new Dictionary<uint, List<Multipart>>();
-	private int multi_groupid = 0;
+	private Dictionary<uint, Multipart[]> multipart_cache = new Dictionary<uint, Multipart[]>();
+	private uint multi_groupid = 0;
 
 	// Use this for initialization
 	void Start()
@@ -60,13 +60,13 @@ public class NetworkMessenger : MonoBehaviour
 			msg.message_type = (byte)MsgType.Multipart;
 			//  calculate how many parts we have to split this into
 			int maxsize = 512 - (12+NetPacket.DEFAULT_FRAME_LEN);
-			int parts = (buffer.BaseStream.Length / maxsize) + 1;
+			int parts = ((int)buffer.BaseStream.Length / maxsize) + 1;
 			this.multi_groupid++;
 			int bstart = 0;
 			for (int i = 0; i < parts; i++) {
 				int bend = bstart + maxsize;
 				if (i+1 == parts) {
-					bend = bstart + (buffer.BaseStream.Length % maxsize);
+					bend = bstart + (((int)buffer.BaseStream.Length) % maxsize);
 				}
 				Multipart wrapper = new Multipart();
 				wrapper.ID = (ushort)i;
@@ -202,14 +202,14 @@ public class NetworkMessenger : MonoBehaviour
 		// Read from message queue and process!
 		// Send updates to each object.
 		Debug.Log("Got message: " + parsedMsg);
-		switch ((MsgType)msg.message_type)
+		switch ((MsgType)np.message_type)
 		{
 			case MsgType.Multipart:
 				Multipart mpmsg = (Multipart)parsedMsg;
 				// 1. If this group doesn't exist, create it
 				if (!this.multipart_cache.ContainsKey(mpmsg.GroupID))
 				{
-					this.multipart_cache[mpmsg.GroupID] = new List<Multipart>(mpmsg.NumParts);
+					this.multipart_cache[mpmsg.GroupID] = new Multipart[mpmsg.NumParts];
 				}
 				// 2. Insert message into group
 				this.multipart_cache[mpmsg.GroupID][mpmsg.ID] = mpmsg;
