@@ -69,9 +69,8 @@ func (s *Server) sendMessages() {
 		totallen := msg.msg.Len()
 		if totallen > 512 {
 			// calculate how many parts we have to split this into
-			maxsize := 512 - (&messages.Multipart{}).Len()
+			maxsize := 512 - (&messages.Multipart{}).Len() - messages.FrameLen
 			parts := totallen/maxsize + 1
-
 			msg.dest.GroupID++
 			bstart := 0
 			for i := 0; i < parts; i++ {
