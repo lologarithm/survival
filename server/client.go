@@ -8,8 +8,6 @@ import (
 	"github.com/lologarithm/survival/server/messages"
 )
 
-// TODO: Track 'reliable' messages. Decide which need to be resent.
-
 type Client struct {
 	ID      uint32 // Unique ID for this session
 	buffer  []byte
