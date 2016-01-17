@@ -1,23 +1,23 @@
 package physics
 
-func CrossProduct(a Vect2, b Vect2) float64 {
+func CrossProduct(a Vect2, b Vect2) int32 {
 	return a.X*b.Y - a.Y*b.X
 }
 
-func CrossScalar(v Vect2, s float64) Vect2 {
+func CrossScalar(v Vect2, s int32) Vect2 {
 	return Vect2{v.Y * s, -s * v.X}
 }
 
-func CrossScalarFirst(s float64, v Vect2) Vect2 {
+func CrossScalarFirst(s int32, v Vect2) Vect2 {
 	return Vect2{v.Y * -s, s * v.X}
 }
 
-func MultVect2(a Vect2, s float64) Vect2 {
+func MultVect2(a Vect2, s int32) Vect2 {
 	return Vect2{a.X * s, a.Y * s}
 }
 
 type Vect2 struct {
-	X, Y float64
+	X, Y int32
 }
 
 func (v Vect2) Add(v2 Vect2) Vect2 {
@@ -36,10 +36,10 @@ type RigidBody struct {
 	AngularVelocity float64 // speed of rotation around the Z axis (radians/sec)
 	Torque          float64 // Torque to apply each tick
 
-	Mass       float64 // mass of the object, (kg)
-	InvMass    float64 // Inverted mass for physics calcs
-	Inertia    float64 // Inertia of the ship
-	InvInertia float64 // Inverted Inertia for physics calcs
+	Mass       int32 // mass of the object, (kg)
+	InvMass    int32 // Inverted mass for physics calcs
+	Inertia    int32 // Inertia of the ship
+	InvInertia int32 // Inverted Inertia for physics calcs
 }
 
 // PhysicsEntityUpdate message linked to an Entity.

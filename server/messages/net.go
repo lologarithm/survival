@@ -17,8 +17,9 @@ type MessageType uint16
 const (
 	UnknownMsgType MessageType = iota
 	AckMsgType
-	ContinuedMsgType
+	MultipartMsgType
 	ConnectedMsgType
+	DisconnectedMsgType
 	CreateAcctMsgType
 	CreateAcctRespMsgType
 	LoginMsgType
@@ -44,8 +45,12 @@ const (
 func ParseNetMessage(packet Packet, content []byte) Net {
 	var msg Net
 	switch packet.Frame.MsgType {
+	case MultipartMsgType:
+		msg = &Multipart{}
 	case ConnectedMsgType:
 		msg = &Connected{}
+	case DisconnectedMsgType:
+		msg = &Disconnected{}
 	case CreateAcctMsgType:
 		msg = &CreateAcct{}
 	case CreateAcctRespMsgType:
@@ -86,26 +91,73 @@ func ParseNetMessage(packet Packet, content []byte) Net {
 		msg = &EndGame{}
 	default:
 		log.Printf("Unknown message type: %d", packet.Frame.MsgType)
+		return nil
 	}
 	msg.Deserialize(bytes.NewBuffer(content))
 	return msg
 }
 
+type Multipart struct {
+	ID uint16
+	GroupID uint32
+	NumParts uint16
+	Content []byte
+}
+
+func (m *Multipart) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, m.ID)
+	binary.Write(buffer, binary.LittleEndian, m.GroupID)
+	binary.Write(buffer, binary.LittleEndian, m.NumParts)
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Content)))
+	buffer.Write(m.Content)
+}
+
+func (m *Multipart) Deserialize(buffer *bytes.Buffer) {
+	binary.Read(buffer, binary.LittleEndian, &m.ID)
+	binary.Read(buffer, binary.LittleEndian, &m.GroupID)
+	binary.Read(buffer, binary.LittleEndian, &m.NumParts)
+	var l3_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l3_1)
+	m.Content = make([]byte, l3_1)
+	for i := 0; i < int(l3_1); i++ {
+		m.Content[i], _ = buffer.ReadByte()
+	}
+}
+
+func (m *Multipart) Len() int {
+	mylen := 0
+	mylen += 2
+	mylen += 4
+	mylen += 2
+	mylen += 4 + len(m.Content)
+	return mylen
+}
+
 type Connected struct {
-	IsConnected byte
 }
 
 func (m *Connected) Serialize(buffer *bytes.Buffer) {
-	buffer.WriteByte(m.IsConnected)
 }
 
 func (m *Connected) Deserialize(buffer *bytes.Buffer) {
-	m.IsConnected, _ = buffer.ReadByte()
 }
 
 func (m *Connected) Len() int {
 	mylen := 0
-	mylen += 1
+	return mylen
+}
+
+type Disconnected struct {
+}
+
+func (m *Disconnected) Serialize(buffer *bytes.Buffer) {
+}
+
+func (m *Disconnected) Deserialize(buffer *bytes.Buffer) {
+}
+
+func (m *Disconnected) Len() int {
+	mylen := 0
 	return mylen
 }
 
@@ -549,10 +601,10 @@ type Entity struct {
 	ID uint32
 	EType uint16
 	Seed uint64
-	X uint32
-	Y uint32
-	Height uint32
-	Width uint32
+	X int32
+	Y int32
+	Height int32
+	Width int32
 	HealthPercent byte
 }
 

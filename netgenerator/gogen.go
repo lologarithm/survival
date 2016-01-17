@@ -12,7 +12,7 @@ func WriteGo(messages []Message, messageMap map[string]Message) {
 	// 1. List type values!
 	gobuf.WriteString("type Net interface {\n\tSerialize(*bytes.Buffer)\n\tDeserialize(*bytes.Buffer)\n\tLen() int\n}\n\n")
 	gobuf.WriteString("type MessageType uint16\n\n")
-	gobuf.WriteString("const (\n\tUnknownMsgType MessageType = iota\n\tAckMsgType\n\tContinuedMsgType\n")
+	gobuf.WriteString("const (\n\tUnknownMsgType MessageType = iota\n\tAckMsgType\n")
 	for _, t := range messages {
 		gobuf.WriteString("\t")
 		gobuf.WriteString(t.Name)
@@ -33,7 +33,7 @@ func WriteGo(messages []Message, messageMap map[string]Message) {
 		gobuf.WriteString(t.Name)
 		gobuf.WriteString("{}\n")
 	}
-	gobuf.WriteString("\tdefault:\n\t\tlog.Printf(\"Unknown message type: %d\", packet.Frame.MsgType)\n\t}\n\tmsg.Deserialize(bytes.NewBuffer(content))\n\treturn msg\n}\n\n")
+	gobuf.WriteString("\tdefault:\n\t\tlog.Printf(\"Unknown message type: %d\", packet.Frame.MsgType)\n\t\treturn nil\n\t}\n\tmsg.Deserialize(bytes.NewBuffer(content))\n\treturn msg\n}\n\n")
 
 	// 2. Generate go classes
 	for _, msg := range messages {
@@ -79,6 +79,13 @@ func WriteGoLen(f MessageField, scopeDepth int, buf *bytes.Buffer, messages map[
 		buf.WriteString("\t")
 	}
 	switch f.Type {
+	case "[]byte":
+		buf.WriteString("mylen += 4 + len(")
+		if scopeDepth == 1 {
+			buf.WriteString("m.")
+		}
+		buf.WriteString(f.Name)
+		buf.WriteString(")")
 	case "byte":
 		buf.WriteString("mylen += 1")
 	case "uint16", "int16":
@@ -131,6 +138,22 @@ func WriteGoSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, message
 		buf.WriteString("\t")
 	}
 	switch f.Type {
+	case "[]byte":
+		buf.WriteString("binary.Write(buffer, binary.LittleEndian, int32(len(")
+		if scopeDepth == 1 {
+			buf.WriteString("m.")
+		}
+		buf.WriteString(f.Name)
+		buf.WriteString(")))\n")
+		for i := 0; i < scopeDepth; i++ {
+			buf.WriteString("\t")
+		}
+		buf.WriteString("buffer.Write(")
+		if scopeDepth == 1 {
+			buf.WriteString("m.")
+		}
+		buf.WriteString(f.Name)
+		buf.WriteString(")\n")
 	case "byte":
 		buf.WriteString("buffer.WriteByte(")
 		if scopeDepth == 1 {

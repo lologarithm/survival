@@ -7,7 +7,7 @@ interface INet {
 	void Deserialize(BinaryReader buffer);
 }
 
-enum MsgType : ushort {Unknown=0,Ack=1,Continued=2,Connected=3,CreateAcct=4,CreateAcctResp=5,Login=6,LoginResp=7,CreateChar=8,CreateCharResp=9,DeleteChar=10,Character=11,ListGames=12,ListGamesResp=13,CreateGame=14,CreateGameResp=15,JoinGame=16,GameConnected=17,Entity=18,EntityMove=19,UseAbility=20,AbilityResult=21,EndGame=22}
+enum MsgType : ushort {Unknown=0,Ack=1,Multipart=2,Connected=3,Disconnected=4,CreateAcct=5,CreateAcctResp=6,Login=7,LoginResp=8,CreateChar=9,CreateCharResp=10,DeleteChar=11,Character=12,ListGames=13,ListGamesResp=14,CreateGame=15,CreateGameResp=16,JoinGame=17,GameConnected=18,Entity=19,EntityMove=20,UseAbility=21,AbilityResult=22,EndGame=23}
 
 static class Messages {
 // ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.
@@ -16,8 +16,14 @@ public static INet Parse(ushort msgType, byte[] content) {
 	MsgType mt = (MsgType)msgType;
 	switch (mt)
 	{
+		case MsgType.Multipart:
+			msg = new Multipart();
+			break;
 		case MsgType.Connected:
 			msg = new Connected();
+			break;
+		case MsgType.Disconnected:
+			msg = new Disconnected();
 			break;
 		case MsgType.CreateAcct:
 			msg = new CreateAcct();
@@ -83,15 +89,49 @@ public static INet Parse(ushort msgType, byte[] content) {
 }
 }
 
-public class Connected : INet {
-	public byte IsConnected;
+public class Multipart : INet {
+	public ushort ID;
+	public uint GroupID;
+	public ushort NumParts;
+	public byte[] Content;
 
 	public void Serialize(BinaryWriter buffer) {
-		buffer.Write(this.IsConnected);
+		buffer.Write(this.ID);
+		buffer.Write(this.GroupID);
+		buffer.Write(this.NumParts);
+		buffer.Write((Int32)this.Content.Length);
+		for (int v2 = 0; v2 < this.Content.Length; v2++) {
+			buffer.Write(this.Content[v2]);
+		}
 	}
 
 	public void Deserialize(BinaryReader buffer) {
-		this.IsConnected = buffer.ReadByte();
+		this.ID = buffer.ReadUInt16();
+		this.GroupID = buffer.ReadUInt32();
+		this.NumParts = buffer.ReadUInt16();
+		int l3_1 = buffer.ReadInt32();
+		this.Content = new byte[l3_1];
+		for (int v2 = 0; v2 < l3_1; v2++) {
+			this.Content[v2] = buffer.ReadByte();
+		}
+	}
+}
+
+public class Connected : INet {
+
+	public void Serialize(BinaryWriter buffer) {
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+	}
+}
+
+public class Disconnected : INet {
+
+	public void Serialize(BinaryWriter buffer) {
+	}
+
+	public void Deserialize(BinaryReader buffer) {
 	}
 }
 
@@ -384,10 +424,10 @@ public class Entity : INet {
 	public uint ID;
 	public ushort EType;
 	public ulong Seed;
-	public uint X;
-	public uint Y;
-	public uint Height;
-	public uint Width;
+	public int X;
+	public int Y;
+	public int Height;
+	public int Width;
 	public byte HealthPercent;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -405,10 +445,10 @@ public class Entity : INet {
 		this.ID = buffer.ReadUInt32();
 		this.EType = buffer.ReadUInt16();
 		this.Seed = buffer.ReadUInt64();
-		this.X = buffer.ReadUInt32();
-		this.Y = buffer.ReadUInt32();
-		this.Height = buffer.ReadUInt32();
-		this.Width = buffer.ReadUInt32();
+		this.X = buffer.ReadInt32();
+		this.Y = buffer.ReadInt32();
+		this.Height = buffer.ReadInt32();
+		this.Width = buffer.ReadInt32();
 		this.HealthPercent = buffer.ReadByte();
 	}
 }

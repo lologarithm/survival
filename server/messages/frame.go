@@ -58,7 +58,9 @@ func NextPacket(rawBytes []byte) (packet Packet, ok bool) {
 	ok = false
 	if packet.Len() <= len(rawBytes) {
 		packet.NetMsg = ParseNetMessage(packet, rawBytes[FrameLen:packet.Len()])
-		ok = true
+		if packet.NetMsg != nil {
+			ok = true
+		}
 	}
 
 	return

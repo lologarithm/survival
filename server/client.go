@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"log"
 	"net"
 
@@ -23,8 +24,9 @@ type Client struct {
 	toGameManager chan<- GameMessage // Messages to the main game manager.
 	toActiveGame  chan<- GameMessage // Messages to the current game
 
-	Seq   uint16
-	Alive bool
+	Seq     uint16
+	GroupID uint32
+	Alive   bool
 }
 
 // ProcessBytes accepts raw bytes from a socket and turns them into NetMessage objects and then
@@ -33,12 +35,14 @@ type Client struct {
 func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient chan Client) {
 	client.toGameManager <- GameMessage{
 		client: client,
-		net: &messages.Connected{
-			IsConnected: 1,
-		},
-		mtype: messages.ConnectedMsgType,
+		net:    &messages.Connected{},
+		mtype:  messages.ConnectedMsgType,
 	}
 	client.Alive = true
+
+	// Used to cache parts of a message.
+	// TODO: When should this be cleaned out?
+	partialMessages := map[uint32][]*messages.Multipart{}
 
 	var toGame chan<- GameMessage // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
 	for client.Alive {
@@ -50,10 +54,32 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 			client.buffer = newBuffer
 		}
 
-		if packet.Frame.MsgType == 255 {
-			// TODO: this should probably not be a random 1off?
+		if packet.Frame.MsgType == messages.DisconnectedMsgType {
 			client.Alive = false
 			break
+		} else if ok && packet.Frame.MsgType == messages.MultipartMsgType {
+			netmsg := packet.NetMsg.(*messages.Multipart)
+			// 1. Check if this group already exists
+			if _, ok := partialMessages[netmsg.GroupID]; !ok {
+				partialMessages[netmsg.GroupID] = make([]*messages.Multipart, netmsg.NumParts)
+			}
+			// 2. Insert into group
+			partialMessages[netmsg.GroupID][netmsg.ID] = netmsg
+			// 3. See if group is ready to process
+			isReady := true
+			for _, p := range partialMessages[netmsg.GroupID] {
+				if p == nil {
+					isReady = false
+					break
+				}
+			}
+			if isReady {
+				buf := &bytes.Buffer{}
+				for _, p := range partialMessages[netmsg.GroupID] {
+					buf.Write(p.Content)
+				}
+				packet, ok = messages.NextPacket(buf.Bytes())
+			}
 		} else if !ok || packet.Len() > client.wIdx {
 			// This means we need more data still.
 			n := client.FromNetwork.Read(client.buffer[client.wIdx:])
@@ -80,9 +106,7 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 	}
 	client.toGameManager <- GameMessage{
 		client: client,
-		net: &messages.Connected{
-			IsConnected: 0,
-		},
-		mtype: messages.ConnectedMsgType,
+		net:    &messages.Disconnected{},
+		mtype:  messages.ConnectedMsgType,
 	}
 }

@@ -124,15 +124,19 @@ func (gm *GameManager) createGame(msg GameMessage) {
 }
 
 func (gm *GameManager) handleConnection(msg GameMessage) {
-	netmsg := msg.net.(*messages.Connected)
 	// First make sure this is a new connection.
 	isNew := gm.Users[msg.client.ID] == nil
-	if netmsg.IsConnected == 0 && !isNew {
-		gm.Users[msg.client.ID] = nil
-	} else if netmsg.IsConnected == 1 && isNew {
+	if isNew {
 		gm.Users[msg.client.ID] = &User{
 			Client: msg.client,
 		}
+	}
+}
+
+func (gm *GameManager) handleDisconnect(msg GameMessage) {
+	isNew := gm.Users[msg.client.ID] == nil
+	if !isNew {
+		gm.Users[msg.client.ID] = nil
 	}
 }
 

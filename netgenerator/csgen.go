@@ -14,11 +14,11 @@ func WriteCS(messages []Message, messageMap map[string]Message) {
 	gobuf.WriteString("interface INet {\n\tvoid Serialize(BinaryWriter buffer);\n\tvoid Deserialize(BinaryReader buffer);\n}\n\n")
 
 	// Message type enum
-	gobuf.WriteString("enum MsgType : ushort {Unknown=0,Ack=1,Continued=2,")
+	gobuf.WriteString("enum MsgType : ushort {Unknown=0,Ack=1,")
 	for idx, t := range messages {
 		gobuf.WriteString(t.Name)
 		gobuf.WriteString("=")
-		gobuf.WriteString(strconv.Itoa(idx + 3))
+		gobuf.WriteString(strconv.Itoa(idx + 2))
 		if idx < len(messages)-1 {
 			gobuf.WriteString(",")
 		}
@@ -27,7 +27,7 @@ func WriteCS(messages []Message, messageMap map[string]Message) {
 
 	gobuf.WriteString("static class Messages {\n")
 	gobuf.WriteString("// ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.\n")
-	gobuf.WriteString("public static INet Parse(byte msgType, byte[] content) {\n")
+	gobuf.WriteString("public static INet Parse(ushort msgType, byte[] content) {\n")
 	gobuf.WriteString("\tINet msg = null;\n\tMsgType mt = (MsgType)msgType;\n")
 	gobuf.WriteString("\tswitch (mt)\n\t{\n")
 	for _, t := range messages {
@@ -104,6 +104,7 @@ func WriteCSSerialize(f MessageField, scopeDepth int, buf *bytes.Buffer, message
 		buf.WriteString("\t")
 	}
 	switch f.Type {
+	// TODO: special case for []byte
 	case "byte", "int16", "int32", "int64", "uint16", "uint32", "uint64":
 		buf.WriteString("buffer.Write(")
 		if scopeDepth == 1 {
@@ -178,6 +179,7 @@ func WriteCSDeserial(f MessageField, scopeDepth int, buf *bytes.Buffer, messages
 		buf.WriteString("\t")
 	}
 	switch f.Type {
+	// TODO: special case for []byte
 	case "byte":
 		if scopeDepth == 1 {
 			buf.WriteString("this.")

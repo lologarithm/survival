@@ -160,6 +160,12 @@ public class NetworkMessenger : MonoBehaviour
 			Debug.Log("Got message: " + parsedMsg);
             switch ((MsgType)msg.message_type)
             {
+				case MsgType.Multipart:
+					// 1. If this group doesn't exist, create it
+				    // 2. Insert message into group
+					// 3. Check if all messages exist
+					// 4. if so, group up bytes and call 'messages.parse' on the content
+				    // 5. clean up!
                 case MsgType.CreateCharResp:
                     characters.Add(((CreateCharResp)parsedMsg).Character);
                     break;

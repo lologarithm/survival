@@ -64,11 +64,44 @@ func (s *Server) DisconnectConn(addrkey string) {
 func (s *Server) sendMessages() {
 	for {
 		msg := <-s.outToNetwork
-		// TODO: figure out how to send splitupmessages
-		if n, err := s.conn.WriteToUDP(msg.msg.Pack(), msg.dest.address); err != nil {
-			fmt.Println("Error: ", err, " Bytes Written: ", n)
+		msgcontent := msg.msg.Pack()
+		totallen := msg.msg.Len()
+		if totallen > 512 {
+			// calculate how many parts we have to split this into
+			maxsize := 512 - (&messages.Multipart{}).Len()
+			parts := totallen/maxsize + 1
+
+			msg.dest.GroupID++
+			bstart := 0
+			for i := 0; i < parts; i++ {
+				bend := bstart + maxsize
+				if i+1 == parts {
+					bend = bstart + (totallen % maxsize)
+				}
+
+				wrapper := &messages.Multipart{
+					ID:       uint16(i),
+					GroupID:  msg.dest.GroupID,
+					NumParts: uint16(parts),
+					Content:  msgcontent[bstart:bend],
+				}
+				packet := &messages.Packet{
+					Frame: messages.Frame{
+					// TODO.
+					},
+					NetMsg: wrapper,
+				}
+
+				if n, err := s.conn.WriteToUDP(packet.Pack(), msg.dest.address); err != nil {
+					fmt.Printf("Error writing to client(%v): %s, Bytes Written:  %d", msg.dest, err, n)
+				}
+			}
 		} else {
-			// log.Printf("Wrote message (%v) with %d bytes to %v.", msg.msg.Pack(), n, msg.dest.address)
+			if n, err := s.conn.WriteToUDP(msgcontent, msg.dest.address); err != nil {
+				fmt.Printf("Error writing to client(%v): %s, Bytes Written:  %d", msg.dest, err, n)
+			} else {
+				// log.Printf("Wrote message (%v) with %d bytes to %v.", msg.msg.Pack(), n, msg.dest.address)
+			}
 		}
 	}
 }
