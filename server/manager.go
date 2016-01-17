@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"log"
 	"math"
 
@@ -125,15 +124,19 @@ func (gm *GameManager) createGame(msg GameMessage) {
 }
 
 func (gm *GameManager) handleConnection(msg GameMessage) {
-	netmsg := msg.net.(*messages.Connected)
 	// First make sure this is a new connection.
 	isNew := gm.Users[msg.client.ID] == nil
-	if netmsg.IsConnected == 0 && !isNew {
-		gm.Users[msg.client.ID] = nil
-	} else if netmsg.IsConnected == 1 && isNew {
+	if isNew {
 		gm.Users[msg.client.ID] = &User{
 			Client: msg.client,
 		}
+	}
+}
+
+func (gm *GameManager) handleDisconnect(msg GameMessage) {
+	isNew := gm.Users[msg.client.ID] == nil
+	if !isNew {
+		gm.Users[msg.client.ID] = nil
 	}
 }
 
@@ -197,7 +200,6 @@ func (gm *GameManager) loginUser(msg GameMessage) {
 		Success: 0,
 		Name:    tmsg.Name,
 	}
-
 	if acct, ok := gm.AcctByName[tmsg.Name]; ok {
 		if acct.Password == tmsg.Password {
 			log.Printf("Logging in account: %s", tmsg.Name)
@@ -223,19 +225,17 @@ func (gm *GameManager) ProcessGameMsg(msg GameMessage) {
 
 // NewOutgoingMsg creates a new message that can be sent to a specific client.
 func NewOutgoingMsg(dest *Client, tp messages.MessageType, msg messages.Net) OutgoingMessage {
-	buf := new(bytes.Buffer)
-	msg.Serialize(buf)
 	frame := messages.Frame{
 		MsgType:       tp,
 		Seq:           1,
-		ContentLength: uint16(buf.Len()),
+		ContentLength: uint16(msg.Len()),
 	}
 	resp := OutgoingMessage{
 		dest: dest,
-		msg: messages.Message{
-			Frame: frame,
+		msg: messages.Packet{
+			Frame:  frame,
+			NetMsg: msg,
 		},
 	}
-	resp.msg.CreateMessageBytes(buf.Bytes())
 	return resp
 }

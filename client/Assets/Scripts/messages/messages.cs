@@ -7,17 +7,23 @@ interface INet {
 	void Deserialize(BinaryReader buffer);
 }
 
-enum MsgType : byte {Unknown=0,Connected=1,CreateAcct=2,CreateAcctResp=3,Login=4,LoginResp=5,CreateChar=6,CreateCharResp=7,DeleteChar=8,Character=9,ListGames=10,ListGamesResp=11,CreateGame=12,CreateGameResp=13,JoinGame=14,GameConnected=15,Entity=16,EntityMove=17,UseAbility=18,AbilityResult=19,EndGame=20}
+enum MsgType : ushort {Unknown=0,Ack=1,Multipart=2,Connected=3,Disconnected=4,CreateAcct=5,CreateAcctResp=6,Login=7,LoginResp=8,CreateChar=9,CreateCharResp=10,DeleteChar=11,Character=12,ListGames=13,ListGamesResp=14,CreateGame=15,CreateGameResp=16,JoinGame=17,GameConnected=18,Entity=19,EntityMove=20,UseAbility=21,AbilityResult=22,EndGame=23}
 
 static class Messages {
 // ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.
-public static INet Parse(byte msgType, byte[] content) {
+public static INet Parse(ushort msgType, byte[] content) {
 	INet msg = null;
 	MsgType mt = (MsgType)msgType;
 	switch (mt)
 	{
+		case MsgType.Multipart:
+			msg = new Multipart();
+			break;
 		case MsgType.Connected:
 			msg = new Connected();
+			break;
+		case MsgType.Disconnected:
+			msg = new Disconnected();
 			break;
 		case MsgType.CreateAcct:
 			msg = new CreateAcct();
@@ -83,15 +89,49 @@ public static INet Parse(byte msgType, byte[] content) {
 }
 }
 
-public class Connected : INet {
-	public byte IsConnected;
+public class Multipart : INet {
+	public ushort ID;
+	public uint GroupID;
+	public ushort NumParts;
+	public byte[] Content;
 
 	public void Serialize(BinaryWriter buffer) {
-		buffer.Write(this.IsConnected);
+		buffer.Write(this.ID);
+		buffer.Write(this.GroupID);
+		buffer.Write(this.NumParts);
+		buffer.Write((Int32)this.Content.Length);
+		for (int v2 = 0; v2 < this.Content.Length; v2++) {
+			buffer.Write(this.Content[v2]);
+		}
 	}
 
 	public void Deserialize(BinaryReader buffer) {
-		this.IsConnected = buffer.ReadByte();
+		this.ID = buffer.ReadUInt16();
+		this.GroupID = buffer.ReadUInt32();
+		this.NumParts = buffer.ReadUInt16();
+		int l3_1 = buffer.ReadInt32();
+		this.Content = new byte[l3_1];
+		for (int v2 = 0; v2 < l3_1; v2++) {
+			this.Content[v2] = buffer.ReadByte();
+		}
+	}
+}
+
+public class Connected : INet {
+
+	public void Serialize(BinaryWriter buffer) {
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+	}
+}
+
+public class Disconnected : INet {
+
+	public void Serialize(BinaryWriter buffer) {
+	}
+
+	public void Deserialize(BinaryReader buffer) {
 	}
 }
 
@@ -117,7 +157,7 @@ public class CreateAcct : INet {
 }
 
 public class CreateAcctResp : INet {
-	public UInt32 AccountID;
+	public uint AccountID;
 	public string Name;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -158,7 +198,7 @@ public class Login : INet {
 public class LoginResp : INet {
 	public byte Success;
 	public string Name;
-	public UInt32 AccountID;
+	public uint AccountID;
 	public Character[] Characters;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -188,7 +228,7 @@ public class LoginResp : INet {
 }
 
 public class CreateChar : INet {
-	public UInt32 AccountID;
+	public uint AccountID;
 	public string Name;
 	public byte Kit;
 
@@ -209,7 +249,7 @@ public class CreateChar : INet {
 }
 
 public class CreateCharResp : INet {
-	public UInt32 AccountID;
+	public uint AccountID;
 	public Character Character;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -225,7 +265,7 @@ public class CreateCharResp : INet {
 }
 
 public class DeleteChar : INet {
-	public UInt32 ID;
+	public uint ID;
 
 	public void Serialize(BinaryWriter buffer) {
 		buffer.Write(this.ID);
@@ -237,7 +277,7 @@ public class DeleteChar : INet {
 }
 
 public class Character : INet {
-	public UInt32 ID;
+	public uint ID;
 	public string Name;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -264,7 +304,7 @@ public class ListGames : INet {
 }
 
 public class ListGamesResp : INet {
-	public UInt32[] IDs;
+	public uint[] IDs;
 	public string[] Names;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -281,7 +321,7 @@ public class ListGamesResp : INet {
 
 	public void Deserialize(BinaryReader buffer) {
 		int l0_1 = buffer.ReadInt32();
-		this.IDs = new UInt32[l0_1];
+		this.IDs = new uint[l0_1];
 		for (int v2 = 0; v2 < l0_1; v2++) {
 			this.IDs[v2] = buffer.ReadUInt32();
 		}
@@ -312,8 +352,8 @@ public class CreateGame : INet {
 
 public class CreateGameResp : INet {
 	public string Name;
-	public UInt32 ID;
-	public UInt64 Seed;
+	public uint ID;
+	public ulong Seed;
 	public Entity[] Entities;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -343,8 +383,8 @@ public class CreateGameResp : INet {
 }
 
 public class JoinGame : INet {
-	public UInt32 ID;
-	public UInt32 CharID;
+	public uint ID;
+	public uint CharID;
 
 	public void Serialize(BinaryWriter buffer) {
 		buffer.Write(this.ID);
@@ -358,7 +398,7 @@ public class JoinGame : INet {
 }
 
 public class GameConnected : INet {
-	public UInt64 Seed;
+	public ulong Seed;
 	public Entity[] Entities;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -381,13 +421,13 @@ public class GameConnected : INet {
 }
 
 public class Entity : INet {
-	public UInt32 ID;
-	public UInt16 EType;
-	public UInt64 Seed;
-	public UInt32 X;
-	public UInt32 Y;
-	public UInt32 Height;
-	public UInt32 Width;
+	public uint ID;
+	public ushort EType;
+	public ulong Seed;
+	public int X;
+	public int Y;
+	public int Height;
+	public int Width;
 	public byte HealthPercent;
 
 	public void Serialize(BinaryWriter buffer) {
@@ -405,10 +445,10 @@ public class Entity : INet {
 		this.ID = buffer.ReadUInt32();
 		this.EType = buffer.ReadUInt16();
 		this.Seed = buffer.ReadUInt64();
-		this.X = buffer.ReadUInt32();
-		this.Y = buffer.ReadUInt32();
-		this.Height = buffer.ReadUInt32();
-		this.Width = buffer.ReadUInt32();
+		this.X = buffer.ReadInt32();
+		this.Y = buffer.ReadInt32();
+		this.Height = buffer.ReadInt32();
+		this.Width = buffer.ReadInt32();
 		this.HealthPercent = buffer.ReadByte();
 	}
 }
@@ -426,8 +466,8 @@ public class EntityMove : INet {
 }
 
 public class UseAbility : INet {
-	public Int32 AbilityID;
-	public UInt32 Target;
+	public int AbilityID;
+	public uint Target;
 
 	public void Serialize(BinaryWriter buffer) {
 		buffer.Write(this.AbilityID);
@@ -442,7 +482,7 @@ public class UseAbility : INet {
 
 public class AbilityResult : INet {
 	public Entity Target;
-	public Int32 Damage;
+	public int Damage;
 	public byte State;
 
 	public void Serialize(BinaryWriter buffer) {

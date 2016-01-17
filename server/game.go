@@ -7,6 +7,7 @@ import (
 	"time"
 
 	xxhash "github.com/OneOfOne/xxhash/native"
+	"github.com/lologarithm/survival/physics"
 	"github.com/lologarithm/survival/server/messages"
 )
 
@@ -33,7 +34,14 @@ type Game struct {
 type GameWorld struct {
 	Entities []*Entity
 	Chunks   map[uint32]map[uint32]bool // list of chunks that have been already created.
+	Space    *physics.SimulatedSpace
 }
+
+// Simulator design:
+//  1. Needs to be able to represent position of each thing in time correctly.
+//  2. Probably want a simplified 2d physics simulator running to allow for things with velocity?
+//  3. Each tick should have an ID and should be rewindable (so we can insert updates in the past)
+//  4.
 
 func (gw *GameWorld) EntitiesMsg() []*messages.Entity {
 	es := make([]*messages.Entity, len(gw.Entities))
@@ -43,8 +51,6 @@ func (gw *GameWorld) EntitiesMsg() []*messages.Entity {
 
 	return es
 }
-
-// TODO: Structure tiles?
 
 // Run starts the game!
 func (gm *Game) Run() {
@@ -68,6 +74,8 @@ func (gm *Game) Run() {
 				return
 			}
 		}
+		gm.World.Space.Tick(true)
+		// TODO: send updates from the tick?
 		fmt.Printf("Sending client update!\n")
 	}
 }
@@ -112,13 +120,17 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 
 		oSeed := oh.Sum64()
 		// floor(bits 0:8 / 2.57) = rock X position relative to chunk
-		ox := uint32(float64(oSeed>>56) * 2)
+		ox := int32(oSeed>>56) * 2
 		// floor(bits 8:16 / 2.57) = rock Y position relative to chunk
-		oy := uint32(float64((oSeed<<8)>>56) * 2)
+		oy := int32((oSeed<<8)>>56) * 2
 
 		te := &Entity{
-			X:      ox,
-			Y:      oy,
+			Body: physics.RigidBody{
+				Position: physics.Vect2{
+					X: ox,
+					Y: oy,
+				},
+			},
 			Seed:   oSeed,
 			Height: 2,
 			Width:  2,
@@ -160,13 +172,17 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 
 		oSeed := oh.Sum64()
 		// floor(bits 0:8 / 2.57) = tree X position relative to chunk
-		ox := uint32(float64(oSeed>>56) * 2)
+		ox := int32(oSeed>>56) * 2
 		// floor(bits 8:16 / 2.57) = tree Y position relative to chunk
-		oy := uint32(float64((oSeed<<8)>>56) * 2)
+		oy := int32((oSeed<<8)>>56) * 2
 
 		te := &Entity{
-			X:      ox,
-			Y:      oy,
+			Body: physics.RigidBody{
+				Position: physics.Vect2{
+					X: ox,
+					Y: oy,
+				},
+			},
 			Seed:   oSeed,
 			Height: 3,
 			Width:  3,
@@ -218,17 +234,16 @@ type Entity struct {
 	ID     uint32
 	EType  uint16
 	Seed   uint64
-	X      uint32
-	Y      uint32
-	Height uint32
-	Width  uint32
+	Height int32
+	Width  int32
+	Body   physics.RigidBody
 }
 
 func (e *Entity) toMsg() *messages.Entity {
 	o := &messages.Entity{
 		ID:     e.ID,
-		X:      e.X,
-		Y:      e.Y,
+		X:      e.Body.Position.X,
+		Y:      e.Body.Position.Y,
 		Height: e.Height,
 		Width:  e.Width,
 		EType:  e.EType,
@@ -239,7 +254,7 @@ func (e *Entity) toMsg() *messages.Entity {
 }
 
 func (e *Entity) Intersects(o *Entity) bool {
-	if e.X > o.X+o.Width || e.X+e.Width < o.X || e.Y > o.Y+o.Height || e.Y+e.Height < o.Y {
+	if e.Body.Position.X > o.Body.Position.X+o.Width || e.Body.Position.X+e.Width < o.Body.Position.X || e.Body.Position.Y > o.Body.Position.Y+o.Height || e.Body.Position.Y+e.Height < o.Body.Position.Y {
 		return false
 	}
 	return true
