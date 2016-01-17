@@ -50,10 +50,16 @@ public class NetworkMessenger : MonoBehaviour
 		MemoryStream stream = new MemoryStream();
 		BinaryWriter buffer = new BinaryWriter(stream);
 		outmsg.Serialize(buffer);
-		msg.content = stream.ToArray();
-		msg.content_length = (UInt16)msg.content.Length;
-		msg.message_type = (byte)t;
-		this.sending_socket.Send(msg.MessageBytes());
+
+		if (buffer.BaseStream.Length() + NetMessage.DEFAULT_FRAME_LEN > 512) {
+			// TODO: Split the messages here!
+		} else {
+			msg.content = stream.ToArray();
+			msg.content_length = (UInt16)msg.content.Length;
+			msg.message_type = (byte)t;
+			this.sending_socket.Send(msg.MessageBytes());
+		}
+
 	}
 
 	public void CreateAccount(string name, string password) {

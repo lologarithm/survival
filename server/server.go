@@ -64,6 +64,7 @@ func (s *Server) DisconnectConn(addrkey string) {
 func (s *Server) sendMessages() {
 	for {
 		msg := <-s.outToNetwork
+		msg.msg.Frame.Seq = msg.dest.Seq
 		msgcontent := msg.msg.Pack()
 		totallen := msg.msg.Len()
 		if totallen > 512 {
@@ -87,11 +88,13 @@ func (s *Server) sendMessages() {
 				}
 				packet := &messages.Packet{
 					Frame: messages.Frame{
-					// TODO.
+						MsgType:       messages.MultipartMsgType,
+						Seq:           msg.dest.Seq,
+						ContentLength: uint16(wrapper.Len()),
 					},
 					NetMsg: wrapper,
 				}
-
+				msg.dest.Seq++
 				if n, err := s.conn.WriteToUDP(packet.Pack(), msg.dest.address); err != nil {
 					fmt.Printf("Error writing to client(%v): %s, Bytes Written:  %d", msg.dest, err, n)
 				}
