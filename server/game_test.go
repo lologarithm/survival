@@ -1,6 +1,9 @@
 package server
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestGameSpawning(t *testing.T) {
 	g := NewGame("A", nil, nil)
@@ -8,11 +11,11 @@ func TestGameSpawning(t *testing.T) {
 
 	g.SpawnChunk(0, 0)
 
-	// for i, t := range g.World.Entities {
-	// 	name := "Rock"
-	// 	if t.EType == 2 {
-	// 		name = "Tree"
-	// 	}
-	// 	fmt.Printf("Entity %s %3d: Size: %2d X:%3d Y:%3d\n", name, i, t.Height, t.X, t.Y)
-	// }
+	for i, t := range g.World.Entities {
+		name := "Rock"
+		if t.EType == 2 {
+			name = "Tree"
+		}
+		fmt.Printf("Entity %s %3d: Size: %2d X:%3d Y:%3d\n", name, i, t.Height, t.Body.Position.X, t.Body.Position.Y)
+	}
 }

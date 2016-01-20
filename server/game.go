@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"math/rand"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/lologarithm/survival/physics"
 	"github.com/lologarithm/survival/server/messages"
 )
+
+const ChunkSize int32 = 2000
 
 // Game represents a single game
 type Game struct {
@@ -70,9 +73,9 @@ func (g *Game) Run() {
 						ID:     tmsg.CharID,
 						EType:  3, // TODO: make constnats
 						Seed:   0, // players dont need a seed?
-						Height: 5,
-						Width:  5,
-						Body:   physics.NewRigidBody(tmsg.CharID, physics.Vect2{256, 256}, physics.Vect2{}, 0, 100),
+						Height: 6,
+						Width:  6,
+						Body:   physics.NewRigidBody(tmsg.CharID, physics.Vect2{1000, 1000}, physics.Vect2{}, 0, 100),
 					}
 					g.World.Space.AddEntity(player.Body, false)
 				case messages.EntityMoveMsgType:
@@ -101,13 +104,10 @@ func (g *Game) SpawnChunk(x, y uint32) {
 
 	binary.LittleEndian.PutUint64(tb[:8], g.Seed)
 	h.Write(tb[:8])
-
 	binary.LittleEndian.PutUint32(tb[:4], x)
 	h.Write(tb[:4])
-
 	binary.LittleEndian.PutUint32(tb[:4], y)
 	h.Write(tb[:4])
-
 	binary.LittleEndian.PutUint32(tb[:4], 1)
 	h.Write(tb[:4])
 
@@ -123,21 +123,16 @@ func (g *Game) SpawnChunk(x, y uint32) {
 
 		binary.LittleEndian.PutUint32(tb[:4], x)
 		oh.Write(tb[:4])
-
 		binary.LittleEndian.PutUint32(tb[:4], y)
 		oh.Write(tb[:4])
-
 		binary.LittleEndian.PutUint32(tb[:4], 10)
 		oh.Write(tb[:4])
-
 		binary.LittleEndian.PutUint32(tb[:4], uint32(i))
 		oh.Write(tb[:4])
 
 		oSeed := oh.Sum64()
-		// floor(bits 0:8 / 2.57) = rock X position relative to chunk
-		ox := int32(oSeed>>56) * 2
-		// floor(bits 8:16 / 2.57) = rock Y position relative to chunk
-		oy := int32((oSeed<<8)>>56) * 2
+		ox := int32(oSeed>>48) / 33
+		oy := int32((oSeed<<16)>>48) / 33
 
 		te := &Entity{
 			Body: &physics.RigidBody{
@@ -147,8 +142,8 @@ func (g *Game) SpawnChunk(x, y uint32) {
 				},
 			},
 			Seed:   oSeed,
-			Height: 2,
-			Width:  2,
+			Height: 5,
+			Width:  5,
 			EType:  0,
 		}
 		// Check if existing rock overlaps this rock, if so, make old rock bigger!
@@ -156,8 +151,8 @@ func (g *Game) SpawnChunk(x, y uint32) {
 		for _, t := range g.World.Entities {
 			if t.Intersects(te) {
 				if t.EType == te.EType {
-					t.Height++
-					t.Width++
+					t.Height += 3
+					t.Width += 3
 				}
 				intersected = true
 				break
@@ -169,28 +164,22 @@ func (g *Game) SpawnChunk(x, y uint32) {
 	}
 
 	for i := 0; i < int(numTrees); i++ {
-		oh := xxhash.New64() // (worldseed, chunkX, chunkY, 10, rock#)
+		oh := xxhash.New64() // (worldseed, chunkX, chunkY, 12, tree#)
 		binary.LittleEndian.PutUint64(tb[:8], g.Seed)
 		oh.Write(tb[:8])
-
 		binary.LittleEndian.PutUint32(tb[:4], x)
 		oh.Write(tb[:4])
-
 		binary.LittleEndian.PutUint32(tb[:4], y)
 		oh.Write(tb[:4])
-
 		binary.LittleEndian.PutUint32(tb[:4], 12)
 		oh.Write(tb[:4])
-
 		binary.LittleEndian.PutUint32(tb[:4], uint32(i))
 		oh.Write(tb[:4])
 
 		oSeed := oh.Sum64()
-		// floor(bits 0:8 / 2.57) = tree X position relative to chunk
-		ox := int32(oSeed>>56) * 2
-		// floor(bits 8:16 / 2.57) = tree Y position relative to chunk
-		oy := int32((oSeed<<8)>>56) * 2
-
+		ox := int32(oSeed>>48) / 33
+		oy := int32((oSeed<<16)>>48) / 33
+		log.Printf("Tree pos: %d, %d", ox, oy)
 		te := &Entity{
 			Body: &physics.RigidBody{
 				Position: physics.Vect2{
@@ -199,17 +188,18 @@ func (g *Game) SpawnChunk(x, y uint32) {
 				},
 			},
 			Seed:   oSeed,
-			Height: 3,
-			Width:  3,
+			Height: 20,
+			Width:  20,
 			EType:  2,
 		}
+
 		// Check if existing tree overlaps this tree, if so, make old tree bigger!
 		intersected := false
 		for _, t := range g.World.Entities {
 			if t.Intersects(te) {
 				if t.EType == te.EType {
-					t.Height += 2
-					t.Width += 2
+					t.Height += 5
+					t.Width += 5
 				}
 				intersected = true
 				break
