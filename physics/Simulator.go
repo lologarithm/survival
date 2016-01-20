@@ -42,7 +42,7 @@ func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
 	ss.lastUpdate = time.Now()
 	var changeList []PhysicsEntityUpdate
 	if sendUpdate {
-		changeList = make([]PhysicsEntityUpdate, len(ss.Entities))
+		changeList = make([]PhysicsEntityUpdate, len(ss.Entities)*2)
 	}
 	cidx := 0
 	changed := false
@@ -70,13 +70,35 @@ func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
 			}
 			changed = true
 		}
+
 		if changed && sendUpdate {
 			changeList[cidx].UpdateType = UpdatePosition
 			changeList[cidx].Body = *rigid
 			cidx++
+			if cidx == len(changeList) {
+				newlist := make([]PhysicsEntityUpdate, len(changeList)*2)
+				copy(newlist, changeList)
+				changeList = newlist
+			}
+		}
+
+		for _, other := range ss.Entities {
+			if other.ID == rigid.ID {
+				continue
+			}
+			if other.Position.X == rigid.Position.X || other.Position.Y == rigid.Position.Y {
+				changeList[cidx].UpdateType = UpdateCollision
+				changeList[cidx].Body = *rigid
+				cidx++
+				if cidx == len(changeList) {
+					newlist := make([]PhysicsEntityUpdate, len(changeList)*2)
+					copy(newlist, changeList)
+					changeList = newlist
+				}
+			}
 		}
 	}
 	// Check for collisions?
 
-	return changeList
+	return changeList[:cidx]
 }

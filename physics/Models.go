@@ -42,6 +42,17 @@ type RigidBody struct {
 	InvInertia int32 // Inverted Inertia for physics calcs
 }
 
+func NewRigidBody(id uint32, pos Vect2, vel Vect2, angle float64, mass int32) *RigidBody {
+	return &RigidBody{
+		ID:       id,
+		Position: pos,
+		Velocity: vel,
+		Angle:    angle,
+		Mass:     mass,
+		InvMass:  1 / mass,
+	}
+}
+
 // PhysicsEntityUpdate message linked to an Entity.
 type PhysicsEntityUpdate struct {
 	UpdateType byte      // 2 == add, 3 == remove, 4 == physics update

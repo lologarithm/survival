@@ -50,7 +50,7 @@ func (gw *GameWorld) EntitiesMsg() []*messages.Entity {
 }
 
 // Run starts the game!
-func (gm *Game) Run() {
+func (g *Game) Run() {
 	waiting := true
 	for {
 		timeout := time.Millisecond * 50
@@ -60,29 +60,46 @@ func (gm *Game) Run() {
 			case <-time.After(timeout):
 				waiting = false
 				break
-			case msg := <-gm.FromNetwork:
+			case msg := <-g.FromNetwork:
 				fmt.Printf("GameManager: Received message: %T\n", msg)
 				switch msg.mtype {
+				case messages.JoinGameMsgType:
+					tmsg := msg.net.(*messages.JoinGame)
+
+					player := &Entity{
+						ID:     tmsg.CharID,
+						EType:  3, // TODO: make constnats
+						Seed:   0, // players dont need a seed?
+						Height: 5,
+						Width:  5,
+						Body:   physics.NewRigidBody(tmsg.CharID, physics.Vect2{256, 256}, physics.Vect2{}, 0, 100),
+					}
+					g.World.Space.AddEntity(player.Body, false)
+				case messages.EntityMoveMsgType:
 				default:
 					fmt.Printf("GameManager.go:RunGame(): UNKNOWN MESSAGE TYPE: %T\n", msg)
 				}
-			case <-gm.Exit:
+			case <-g.Exit:
 				fmt.Println("EXITING Game Manager")
 				return
 			}
 		}
-		gm.World.Space.Tick(true)
+		g.World.Space.Tick(true)
 		// TODO: send updates from the tick?
 		fmt.Printf("Sending client update!\n")
 	}
 }
 
+func (g *Game) MoveEntity() {
+
+}
+
 // SpawnChunk creates all the entities for a chunk at the given x/y
-func (gm *Game) SpawnChunk(x, y uint32) {
+func (g *Game) SpawnChunk(x, y uint32) {
 	h := xxhash.New64()
 	tb := make([]byte, 8)
 
-	binary.LittleEndian.PutUint64(tb[:8], gm.Seed)
+	binary.LittleEndian.PutUint64(tb[:8], g.Seed)
 	h.Write(tb[:8])
 
 	binary.LittleEndian.PutUint32(tb[:4], x)
@@ -101,7 +118,7 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 
 	for i := 0; i < int(numRocks); i++ {
 		oh := xxhash.New64() // (worldseed, chunkX, chunkY, 10, rock#)
-		binary.LittleEndian.PutUint64(tb[:8], gm.Seed)
+		binary.LittleEndian.PutUint64(tb[:8], g.Seed)
 		oh.Write(tb[:8])
 
 		binary.LittleEndian.PutUint32(tb[:4], x)
@@ -123,7 +140,7 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 		oy := int32((oSeed<<8)>>56) * 2
 
 		te := &Entity{
-			Body: physics.RigidBody{
+			Body: &physics.RigidBody{
 				Position: physics.Vect2{
 					X: ox,
 					Y: oy,
@@ -136,7 +153,7 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 		}
 		// Check if existing rock overlaps this rock, if so, make old rock bigger!
 		intersected := false
-		for _, t := range gm.World.Entities {
+		for _, t := range g.World.Entities {
 			if t.Intersects(te) {
 				if t.EType == te.EType {
 					t.Height++
@@ -147,13 +164,13 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 			}
 		}
 		if !intersected {
-			gm.World.Entities = append(gm.World.Entities, te)
+			g.World.Entities = append(g.World.Entities, te)
 		}
 	}
 
 	for i := 0; i < int(numTrees); i++ {
 		oh := xxhash.New64() // (worldseed, chunkX, chunkY, 10, rock#)
-		binary.LittleEndian.PutUint64(tb[:8], gm.Seed)
+		binary.LittleEndian.PutUint64(tb[:8], g.Seed)
 		oh.Write(tb[:8])
 
 		binary.LittleEndian.PutUint32(tb[:4], x)
@@ -175,7 +192,7 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 		oy := int32((oSeed<<8)>>56) * 2
 
 		te := &Entity{
-			Body: physics.RigidBody{
+			Body: &physics.RigidBody{
 				Position: physics.Vect2{
 					X: ox,
 					Y: oy,
@@ -188,7 +205,7 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 		}
 		// Check if existing tree overlaps this tree, if so, make old tree bigger!
 		intersected := false
-		for _, t := range gm.World.Entities {
+		for _, t := range g.World.Entities {
 			if t.Intersects(te) {
 				if t.EType == te.EType {
 					t.Height += 2
@@ -199,17 +216,17 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 			}
 		}
 		if !intersected {
-			gm.World.Entities = append(gm.World.Entities, te)
+			g.World.Entities = append(g.World.Entities, te)
 		}
 	}
 
-	if gm.World.Chunks == nil {
-		gm.World.Chunks = map[uint32]map[uint32]bool{}
+	if g.World.Chunks == nil {
+		g.World.Chunks = map[uint32]map[uint32]bool{}
 	}
-	if gm.World.Chunks[x] == nil {
-		gm.World.Chunks[x] = map[uint32]bool{}
+	if g.World.Chunks[x] == nil {
+		g.World.Chunks[x] = map[uint32]bool{}
 	}
-	gm.World.Chunks[x][y] = true
+	g.World.Chunks[x][y] = true
 }
 
 // NewGame constructs a new game and starts it.
@@ -235,7 +252,7 @@ type Entity struct {
 	Seed   uint64
 	Height int32
 	Width  int32
-	Body   physics.RigidBody
+	Body   *physics.RigidBody
 }
 
 func (e *Entity) toMsg() *messages.Entity {

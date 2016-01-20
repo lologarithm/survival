@@ -82,6 +82,7 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 		// TODO: for now just join the default game?
 	case messages.CreateGameMsgType:
 		gm.createGame(msg)
+		// jgm := &messages.JoinGame{}
 		// TODO: the user that created it joins it!
 	case messages.ListGamesMsgType:
 		gameList := &messages.ListGamesResp{
