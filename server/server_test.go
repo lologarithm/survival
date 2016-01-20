@@ -144,6 +144,10 @@ func TestMultipartMessage(t *testing.T) {
 			tmsg, ok := pack.NetMsg.(*messages.Multipart)
 			if ok {
 				multibuffer = append(multibuffer, tmsg.Content...)
+				if tmsg.ID == tmsg.NumParts-1 {
+					log.Printf("Reassembled the multi-message successfully.")
+					return
+				}
 			}
 		}
 	}
