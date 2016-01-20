@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
 
@@ -179,7 +178,6 @@ func (g *Game) SpawnChunk(x, y uint32) {
 		oSeed := oh.Sum64()
 		ox := int32(oSeed>>48) / 33
 		oy := int32((oSeed<<16)>>48) / 33
-		log.Printf("Tree pos: %d, %d", ox, oy)
 		te := &Entity{
 			Body: &physics.RigidBody{
 				Position: physics.Vect2{

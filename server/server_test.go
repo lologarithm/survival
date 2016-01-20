@@ -49,7 +49,6 @@ func TestBasicServer(t *testing.T) {
 	conn.Write(packet.Pack())
 	exit <- 1
 	conn.Close()
-
 }
 
 func BenchmarkServerParsing(b *testing.B) {
