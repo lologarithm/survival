@@ -3,6 +3,8 @@ package physics
 import (
 	"math"
 	"time"
+
+	"github.com/lologarithm/survival/physics/quadtree"
 )
 
 const (
@@ -22,19 +24,35 @@ const (
 //  3. Each tick should have an ID and should be rewindable (so we can insert updates in the past)
 //  4.
 
+func NewSimulatedSpace() *SimulatedSpace {
+	world := quadtree.NewBoundingBox(-10000.0, 10000.0, -10000.0, 10000.0)
+	return &SimulatedSpace{
+		tree:     quadtree.NewQuadTree(world),
+		Entities: make([]*RigidBody, 1000),
+		Fixed:    make([]*RigidBody, 1000),
+	}
+}
+
 type SimulatedSpace struct {
-	Entities   map[uint32]*RigidBody // Anything that can collide in the playspace
-	Fixed      map[uint32]*RigidBody // Anything that can collide but is fixed in place.
+	tree       quadtree.QuadTree
+	Entities   []*RigidBody // Anything that can collide in the playspace
+	entidx     int
+	fixidx     int
+	Fixed      []*RigidBody // Anything that can collide but is fixed in place.
 	lastUpdate time.Time
 	TickID     uint32
 }
 
 func (ss *SimulatedSpace) AddEntity(body *RigidBody, fixed bool) {
 	if fixed {
-		ss.Fixed[body.ID] = body
+		ss.Fixed[ss.fixidx] = body
+		ss.fixidx++
 		return
 	}
-	ss.Entities[body.ID] = body
+	ss.Entities[ss.entidx] = body
+	ss.entidx++
+
+	ss.tree.Add(body)
 }
 
 func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
@@ -47,6 +65,9 @@ func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
 	cidx := 0
 	changed := false
 	for _, rigid := range ss.Entities {
+		if rigid == nil {
+			continue
+		}
 		changed = false
 
 		rigid.Velocity = rigid.Velocity.Add(MultVect2(rigid.Force, rigid.InvMass/SimUpdatesPerSecond))
@@ -82,19 +103,20 @@ func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
 			}
 		}
 
-		for _, other := range ss.Entities {
-			if other.ID == rigid.ID {
+		collisions := ss.tree.Query(rigid.BoundingBox())
+
+		for _, collbox := range collisions {
+			other := collbox.(*RigidBody)
+			if other == nil || other.ID == rigid.ID {
 				continue
 			}
-			if other.Position.X == rigid.Position.X || other.Position.Y == rigid.Position.Y {
-				changeList[cidx].UpdateType = UpdateCollision
-				changeList[cidx].Body = *rigid
-				cidx++
-				if cidx == len(changeList) {
-					newlist := make([]PhysicsEntityUpdate, len(changeList)*2)
-					copy(newlist, changeList)
-					changeList = newlist
-				}
+			changeList[cidx].UpdateType = UpdateCollision
+			changeList[cidx].Body = *rigid
+			cidx++
+			if cidx == len(changeList) {
+				newlist := make([]PhysicsEntityUpdate, len(changeList)*2)
+				copy(newlist, changeList)
+				changeList = newlist
 			}
 		}
 	}

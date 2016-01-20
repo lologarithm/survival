@@ -1,5 +1,7 @@
 package physics
 
+import "github.com/lologarithm/survival/physics/quadtree"
+
 func CrossProduct(a Vect2, b Vect2) int32 {
 	return a.X*b.Y - a.Y*b.X
 }
@@ -40,6 +42,13 @@ type RigidBody struct {
 	InvMass    int32 // Inverted mass for physics calcs
 	Inertia    int32 // Inertia of the ship
 	InvInertia int32 // Inverted Inertia for physics calcs
+
+	Height int32
+	Width  int32
+}
+
+func (rb RigidBody) BoundingBox() quadtree.BoundingBox {
+	return quadtree.NewBoundingBox(rb.Position.X, rb.Position.X+rb.Width, rb.Position.Y, rb.Position.Y+rb.Height)
 }
 
 func NewRigidBody(id uint32, pos Vect2, vel Vect2, angle float64, mass int32) *RigidBody {
