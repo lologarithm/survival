@@ -1,6 +1,15 @@
 
+class Multipart {
+ ID uint16
+ GroupID uint32
+ NumParts uint16
+ Content []byte
+}
+
 class Connected {
- IsConnected byte
+}
+
+class Disconnected {
 }
 
 class CreateAcct {
@@ -78,19 +87,23 @@ class Entity {
  ID uint32
  EType uint16
  Seed uint64
- X uint32
- Y uint32
- Height uint32
- Width uint32
+ X int32
+ Y int32
+ Height int32
+ Width int32
  HealthPercent byte
 }
 
 class EntityMove {
- Direction byte
+ EntityID uint32
+ TickID uint32
+ Direction uint16
 }
 
 class UseAbility {
- AbilityID int32
+ EntityID uint32
+ AbilityID uint32
+ TickID uint32
  Target uint32
 }
 

@@ -38,6 +38,19 @@ func main() {
 					Type:  parts[2],
 					Order: len(message.Fields),
 				}
+				switch field.Type {
+				case "byte":
+					field.Size = 1
+				case "uint16", "int16":
+					field.Size = 2
+				case "uint32", "int32":
+					field.Size = 4
+				case "uint64", "int64":
+					field.Size = 8
+				case "string":
+					field.Size = 4
+				}
+				message.SelfSize += field.Size
 				message.Fields = append(message.Fields, field)
 			}
 		}
@@ -53,8 +66,9 @@ func main() {
 
 // Message is a message that can be serialized across network.
 type Message struct {
-	Name   string
-	Fields []MessageField
+	Name     string
+	Fields   []MessageField
+	SelfSize int
 }
 
 // MessageField is a single field of a message.
@@ -62,4 +76,5 @@ type MessageField struct {
 	Name  string
 	Type  string
 	Order int
+	Size  int
 }

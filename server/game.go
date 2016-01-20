@@ -7,6 +7,7 @@ import (
 	"time"
 
 	xxhash "github.com/OneOfOne/xxhash/native"
+	"github.com/lologarithm/survival/physics"
 	"github.com/lologarithm/survival/server/messages"
 )
 
@@ -27,14 +28,18 @@ type Game struct {
 	Status GameStatus
 
 	// Private
-	World GameWorld
+	World *GameWorld
 }
 
+// GameWorld represents all the data in the world.
+// Physical entities and the physics simulation.
 type GameWorld struct {
 	Entities []*Entity
 	Chunks   map[uint32]map[uint32]bool // list of chunks that have been already created.
+	Space    *physics.SimulatedSpace
 }
 
+// EntitiesMsg converts all entities in the world to a network message.
 func (gw *GameWorld) EntitiesMsg() []*messages.Entity {
 	es := make([]*messages.Entity, len(gw.Entities))
 	for idx, e := range gw.Entities {
@@ -44,10 +49,8 @@ func (gw *GameWorld) EntitiesMsg() []*messages.Entity {
 	return es
 }
 
-// TODO: Structure tiles?
-
 // Run starts the game!
-func (gm *Game) Run() {
+func (g *Game) Run() {
 	waiting := true
 	for {
 		timeout := time.Millisecond * 50
@@ -57,26 +60,46 @@ func (gm *Game) Run() {
 			case <-time.After(timeout):
 				waiting = false
 				break
-			case msg := <-gm.FromNetwork:
+			case msg := <-g.FromNetwork:
 				fmt.Printf("GameManager: Received message: %T\n", msg)
 				switch msg.mtype {
+				case messages.JoinGameMsgType:
+					tmsg := msg.net.(*messages.JoinGame)
+
+					player := &Entity{
+						ID:     tmsg.CharID,
+						EType:  3, // TODO: make constnats
+						Seed:   0, // players dont need a seed?
+						Height: 5,
+						Width:  5,
+						Body:   physics.NewRigidBody(tmsg.CharID, physics.Vect2{256, 256}, physics.Vect2{}, 0, 100),
+					}
+					g.World.Space.AddEntity(player.Body, false)
+				case messages.EntityMoveMsgType:
 				default:
 					fmt.Printf("GameManager.go:RunGame(): UNKNOWN MESSAGE TYPE: %T\n", msg)
 				}
-			case <-gm.Exit:
+			case <-g.Exit:
 				fmt.Println("EXITING Game Manager")
 				return
 			}
 		}
+		g.World.Space.Tick(true)
+		// TODO: send updates from the tick?
 		fmt.Printf("Sending client update!\n")
 	}
 }
 
-func (gm *Game) SpawnChunk(x, y uint32) {
+func (g *Game) MoveEntity() {
+
+}
+
+// SpawnChunk creates all the entities for a chunk at the given x/y
+func (g *Game) SpawnChunk(x, y uint32) {
 	h := xxhash.New64()
 	tb := make([]byte, 8)
 
-	binary.LittleEndian.PutUint64(tb[:8], gm.Seed)
+	binary.LittleEndian.PutUint64(tb[:8], g.Seed)
 	h.Write(tb[:8])
 
 	binary.LittleEndian.PutUint32(tb[:4], x)
@@ -95,7 +118,7 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 
 	for i := 0; i < int(numRocks); i++ {
 		oh := xxhash.New64() // (worldseed, chunkX, chunkY, 10, rock#)
-		binary.LittleEndian.PutUint64(tb[:8], gm.Seed)
+		binary.LittleEndian.PutUint64(tb[:8], g.Seed)
 		oh.Write(tb[:8])
 
 		binary.LittleEndian.PutUint32(tb[:4], x)
@@ -112,13 +135,17 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 
 		oSeed := oh.Sum64()
 		// floor(bits 0:8 / 2.57) = rock X position relative to chunk
-		ox := uint32(float64(oSeed>>56) * 2)
+		ox := int32(oSeed>>56) * 2
 		// floor(bits 8:16 / 2.57) = rock Y position relative to chunk
-		oy := uint32(float64((oSeed<<8)>>56) * 2)
+		oy := int32((oSeed<<8)>>56) * 2
 
 		te := &Entity{
-			X:      ox,
-			Y:      oy,
+			Body: &physics.RigidBody{
+				Position: physics.Vect2{
+					X: ox,
+					Y: oy,
+				},
+			},
 			Seed:   oSeed,
 			Height: 2,
 			Width:  2,
@@ -126,7 +153,7 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 		}
 		// Check if existing rock overlaps this rock, if so, make old rock bigger!
 		intersected := false
-		for _, t := range gm.World.Entities {
+		for _, t := range g.World.Entities {
 			if t.Intersects(te) {
 				if t.EType == te.EType {
 					t.Height++
@@ -137,13 +164,13 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 			}
 		}
 		if !intersected {
-			gm.World.Entities = append(gm.World.Entities, te)
+			g.World.Entities = append(g.World.Entities, te)
 		}
 	}
 
 	for i := 0; i < int(numTrees); i++ {
 		oh := xxhash.New64() // (worldseed, chunkX, chunkY, 10, rock#)
-		binary.LittleEndian.PutUint64(tb[:8], gm.Seed)
+		binary.LittleEndian.PutUint64(tb[:8], g.Seed)
 		oh.Write(tb[:8])
 
 		binary.LittleEndian.PutUint32(tb[:4], x)
@@ -160,13 +187,17 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 
 		oSeed := oh.Sum64()
 		// floor(bits 0:8 / 2.57) = tree X position relative to chunk
-		ox := uint32(float64(oSeed>>56) * 2)
+		ox := int32(oSeed>>56) * 2
 		// floor(bits 8:16 / 2.57) = tree Y position relative to chunk
-		oy := uint32(float64((oSeed<<8)>>56) * 2)
+		oy := int32((oSeed<<8)>>56) * 2
 
 		te := &Entity{
-			X:      ox,
-			Y:      oy,
+			Body: &physics.RigidBody{
+				Position: physics.Vect2{
+					X: ox,
+					Y: oy,
+				},
+			},
 			Seed:   oSeed,
 			Height: 3,
 			Width:  3,
@@ -174,7 +205,7 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 		}
 		// Check if existing tree overlaps this tree, if so, make old tree bigger!
 		intersected := false
-		for _, t := range gm.World.Entities {
+		for _, t := range g.World.Entities {
 			if t.Intersects(te) {
 				if t.EType == te.EType {
 					t.Height += 2
@@ -185,17 +216,17 @@ func (gm *Game) SpawnChunk(x, y uint32) {
 			}
 		}
 		if !intersected {
-			gm.World.Entities = append(gm.World.Entities, te)
+			g.World.Entities = append(g.World.Entities, te)
 		}
 	}
 
-	if gm.World.Chunks == nil {
-		gm.World.Chunks = map[uint32]map[uint32]bool{}
+	if g.World.Chunks == nil {
+		g.World.Chunks = map[uint32]map[uint32]bool{}
 	}
-	if gm.World.Chunks[x] == nil {
-		gm.World.Chunks[x] = map[uint32]bool{}
+	if g.World.Chunks[x] == nil {
+		g.World.Chunks[x] = map[uint32]bool{}
 	}
-	gm.World.Chunks[x][y] = true
+	g.World.Chunks[x][y] = true
 }
 
 // NewGame constructs a new game and starts it.
@@ -208,27 +239,27 @@ func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan G
 		IntoGameManager: toGameManager,
 		FromNetwork:     fromNetwork,
 		Seed:            seed,
-		World:           GameWorld{},
+		World:           &GameWorld{},
 	}
 	// go g.Run()
 	return g
 }
 
+// Entity represents a single object in the game.
 type Entity struct {
 	ID     uint32
 	EType  uint16
 	Seed   uint64
-	X      uint32
-	Y      uint32
-	Height uint32
-	Width  uint32
+	Height int32
+	Width  int32
+	Body   *physics.RigidBody
 }
 
 func (e *Entity) toMsg() *messages.Entity {
 	o := &messages.Entity{
 		ID:     e.ID,
-		X:      e.X,
-		Y:      e.Y,
+		X:      e.Body.Position.X,
+		Y:      e.Body.Position.Y,
 		Height: e.Height,
 		Width:  e.Width,
 		EType:  e.EType,
@@ -238,20 +269,22 @@ func (e *Entity) toMsg() *messages.Entity {
 	return o
 }
 
+// Intersects calculates if two entities overlap -- used currently for chunk generation.
 func (e *Entity) Intersects(o *Entity) bool {
-	if e.X > o.X+o.Width || e.X+e.Width < o.X || e.Y > o.Y+o.Height || e.Y+e.Height < o.Y {
+	if e.Body.Position.X > o.Body.Position.X+o.Width || e.Body.Position.X+e.Width < o.Body.Position.X || e.Body.Position.Y > o.Body.Position.Y+o.Height || e.Body.Position.Y+e.Height < o.Body.Position.Y {
 		return false
 	}
 	return true
 }
 
+// GameMessage is a message from a client to a game.
 type GameMessage struct {
 	net    messages.Net
 	client *Client
 	mtype  messages.MessageType
 }
 
-// TODO: Is this needed?
+// InternalMessage TODO: Is this needed?
 type InternalMessage struct {
 	ToGame chan<- GameMessage
 }

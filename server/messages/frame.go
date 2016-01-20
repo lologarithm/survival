@@ -6,33 +6,43 @@ import (
 	"fmt"
 )
 
-const FrameLen int = 5
+const FrameLen int = 6
 
-type Message struct {
-	RawBytes []byte
-	Frame    Frame
+func NewPacket(t MessageType, msg Net) *Packet {
+	return &Packet{
+		Frame: Frame{
+			MsgType:       t,
+			ContentLength: uint16(msg.Len()),
+		},
+		NetMsg: msg,
+	}
 }
 
-func (m *Message) Content() []byte {
-	return m.RawBytes[FrameLen : FrameLen+int(m.Frame.ContentLength)]
+type Packet struct {
+	Frame  Frame
+	NetMsg Net
 }
 
-func (m *Message) CreateMessageBytes(content []byte) []byte {
+// Pack serializes the content into RawBytes.
+func (m *Packet) Pack() []byte {
 	buf := new(bytes.Buffer)
-	buf.Grow(5 + len(content))
-	buf.WriteByte(byte(m.Frame.MsgType))
+	buf.Grow(m.Len())
+	binary.Write(buf, binary.LittleEndian, m.Frame.MsgType)
 	binary.Write(buf, binary.LittleEndian, m.Frame.Seq)
 	binary.Write(buf, binary.LittleEndian, m.Frame.ContentLength)
-	binary.Write(buf, binary.LittleEndian, content)
-	m.RawBytes = buf.Bytes()
-	return m.RawBytes
+	m.NetMsg.Serialize(buf)
+	return buf.Bytes()
+}
+
+// Len returns the total length of the message including the frame
+func (m *Packet) Len() int {
+	return int(m.Frame.ContentLength) + FrameLen
 }
 
 type Frame struct {
-	MsgType       MessageType // byte 0, type
-	Seq           uint16      // byte 1-2, order of message
-	ContentLength uint16      // byte 3-4, content length
-	From          uint32      // Determined by net addr the request came on.
+	MsgType       MessageType // byte 0-1, type
+	Seq           uint16      // byte 2-3, order of message
+	ContentLength uint16      // byte 4-5, content length
 }
 
 func (mf Frame) String() string {
@@ -40,11 +50,28 @@ func (mf Frame) String() string {
 }
 
 func ParseFrame(rawBytes []byte) (mf Frame, ok bool) {
-	if len(rawBytes) < 5 {
+	if len(rawBytes) < FrameLen {
 		return
 	}
-	mf.MsgType = MessageType(rawBytes[0])
-	mf.Seq = binary.LittleEndian.Uint16(rawBytes[1:3])
-	mf.ContentLength = binary.LittleEndian.Uint16(rawBytes[3:5])
+	mf.MsgType = MessageType(binary.LittleEndian.Uint16(rawBytes[0:2]))
+	mf.Seq = binary.LittleEndian.Uint16(rawBytes[2:4])
+	mf.ContentLength = binary.LittleEndian.Uint16(rawBytes[4:6])
 	return mf, true
+}
+
+func NextPacket(rawBytes []byte) (packet Packet, ok bool) {
+	packet.Frame, ok = ParseFrame(rawBytes)
+	if !ok {
+		return
+	}
+
+	ok = false
+	if packet.Len() <= len(rawBytes) {
+		packet.NetMsg = ParseNetMessage(packet, rawBytes[FrameLen:packet.Len()])
+		if packet.NetMsg != nil {
+			ok = true
+		}
+	}
+
+	return
 }

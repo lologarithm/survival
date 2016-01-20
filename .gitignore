@@ -16,3 +16,7 @@ survival
 *.test
 *.prof
 *.log
+
+netgenerator/netgenerator
+*.out
+*.prof
