@@ -6,32 +6,31 @@ Modified 2015 Ben Echols -- changed from float64 to int32 space
 // Package quadtree is a simple 2D implementation of the Quad-Tree data structure.
 package quadtree
 
-import _ "fmt"
+// MaxEntriesPerTile is the number of entries until a quad is split
+const MaxEntriesPerTile = 16
 
-// Number of entries until a quad is split
-const MAX_ENTRIES_PER_TILE = 16
-
-// Maximum depth of quad-tree (not counting the root node)
-const MAX_LEVELS = 10
+// MaxLevels is the maximum depth of quad-tree (not counting the root node)
+const MaxLevels = 10
 
 // some constants for tile-indeces, for clarity
 const (
-	_TOPRIGHT    = 0
-	_TOPLEFT     = 1
-	_BOTTOMLEFT  = 2
-	_BOTTOMRIGHT = 3
+	topRightTile    = 0
+	topLeftTile     = 1
+	bottomLeftTile  = 2
+	bottomRightTile = 3
 )
 
-// QuadTree exspects its values to implement the BoundingBoxer interface.
+// BoundingBoxer interface allows arbitrary objects to be inserted into the quadtree since it only requires a bounding box.
 type BoundingBoxer interface {
 	BoundingBox() BoundingBox
 }
 
+// QuadTree is the core tree structure.
 type QuadTree struct {
 	root qtile
 }
 
-// Constructs an empty quad-tree
+// NewQuadTree constructs an empty quad-tree
 // bbox specifies the extends of the coordinate system.
 func NewQuadTree(bbox BoundingBox) QuadTree {
 	qt := QuadTree{qtile{BoundingBox: bbox}}
@@ -47,12 +46,12 @@ type qtile struct {
 	childs   [4]*qtile       // sub-tiles. none or four.
 }
 
-// Adds a value to the quad-tree by trickle down from the root node.
+// Add a value to the quad-tree by trickle down from the root node.
 func (qb *QuadTree) Add(v BoundingBoxer) {
 	qb.root.add(v)
 }
 
-// Returns all values which intersect the query box
+// Query will return all objects which intersect the query box
 func (qb *QuadTree) Query(bbox BoundingBox) (values []BoundingBoxer) {
 	return qb.root.query(bbox, values)
 }
@@ -68,7 +67,7 @@ func (tile *qtile) add(v BoundingBoxer) {
 
 		// tile is split if exceeds it max number of entries and
 		// has not childs already and max tree depth for this sub-tree not reached.
-		if len(tile.contents) > MAX_ENTRIES_PER_TILE && tile.childs[_TOPRIGHT] == nil && tile.level < MAX_LEVELS {
+		if len(tile.contents) > MaxEntriesPerTile && tile.childs[topRightTile] == nil && tile.level < MaxLevels {
 			tile.split()
 		}
 	} else {
@@ -81,7 +80,7 @@ func (tile *qtile) add(v BoundingBoxer) {
 // return child index for BoundingBox
 // returns -1 if quad has no children or BoundingBox does not fit into any child
 func (tile *qtile) findChildIndex(bbox BoundingBox) int {
-	if tile.childs[_TOPRIGHT] == nil {
+	if tile.childs[topRightTile] == nil {
 		return -1
 	}
 
@@ -100,10 +99,10 @@ func (tile *qtile) split() {
 	mx := tile.MaxX/2.0 + tile.MinX/2.0
 	my := tile.MaxY/2.0 + tile.MinY/2.0
 
-	tile.childs[_TOPRIGHT] = &qtile{BoundingBox: NewBoundingBox(mx, tile.MaxX, my, tile.MaxY), level: tile.level + 1}
-	tile.childs[_TOPLEFT] = &qtile{BoundingBox: NewBoundingBox(tile.MinX, mx, my, tile.MaxY), level: tile.level + 1}
-	tile.childs[_BOTTOMLEFT] = &qtile{BoundingBox: NewBoundingBox(tile.MinX, mx, tile.MinY, my), level: tile.level + 1}
-	tile.childs[_BOTTOMRIGHT] = &qtile{BoundingBox: NewBoundingBox(mx, tile.MaxX, tile.MinY, my), level: tile.level + 1}
+	tile.childs[topRightTile] = &qtile{BoundingBox: NewBoundingBox(mx, tile.MaxX, my, tile.MaxY), level: tile.level + 1}
+	tile.childs[topLeftTile] = &qtile{BoundingBox: NewBoundingBox(tile.MinX, mx, my, tile.MaxY), level: tile.level + 1}
+	tile.childs[bottomLeftTile] = &qtile{BoundingBox: NewBoundingBox(tile.MinX, mx, tile.MinY, my), level: tile.level + 1}
+	tile.childs[bottomRightTile] = &qtile{BoundingBox: NewBoundingBox(mx, tile.MaxX, tile.MinY, my), level: tile.level + 1}
 
 	// copy values to temporary slice
 	var contentsBak []BoundingBoxer
@@ -132,7 +131,7 @@ func (tile *qtile) query(qbox BoundingBox, ret []BoundingBoxer) []BoundingBoxer 
 	}
 
 	// recurse into childs (if any)
-	if tile.childs[_TOPRIGHT] != nil {
+	if tile.childs[topRightTile] != nil {
 		for _, child := range tile.childs {
 			ret = child.query(qbox, ret)
 		}
