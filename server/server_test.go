@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"testing"
 	"time"
@@ -11,7 +12,9 @@ import (
 
 func TestBasicServer(t *testing.T) {
 	exit := make(chan int, 10)
-	go RunServer(exit)
+	s := NewServer(exit)
+	go RunServer(s, exit)
+
 	time.Sleep(time.Millisecond * 100)
 	ra, err := net.ResolveUDPAddr("udp", "localhost:24816")
 	if err != nil {
@@ -74,4 +77,75 @@ func BenchmarkServerParsing(b *testing.B) {
 		fakeClient.FromNetwork.Write(msgBytes)
 		<-gamechan
 	}
+}
+
+func TestMultipartMessage(t *testing.T) {
+	exit := make(chan int, 10)
+	s := NewServer(exit)
+	go RunServer(s, exit)
+
+	time.Sleep(time.Millisecond * 100)
+	ra, err := net.ResolveUDPAddr("udp", "localhost:24816")
+	if err != nil {
+		fmt.Println(err)
+		t.FailNow()
+		return
+	}
+	clientconn, err := net.DialUDP("udp", nil, ra)
+	if err != nil {
+		fmt.Println(err)
+		t.FailNow()
+		return
+	}
+
+	log.Printf("Opened client conn!")
+	packet := messages.NewPacket(messages.CreateAcctMsgType, &messages.CreateAcct{
+		Name:     "testuser",
+		Password: "testpass",
+	})
+	msgbytes := packet.Pack()
+	_, err = clientconn.Write(msgbytes)
+	if err != nil {
+		fmt.Printf("Failed to write to connection.")
+		fmt.Println(err)
+	}
+	time.Sleep(time.Millisecond * 100)
+
+	packet = messages.NewPacket(messages.CreateGameMsgType, &messages.CreateGame{
+		Name: "testgame",
+	})
+	msgbytes = packet.Pack()
+	_, err = clientconn.Write(msgbytes)
+	if err != nil {
+		fmt.Printf("Failed to write to connection.")
+		fmt.Println(err)
+	}
+
+	time.Sleep(time.Millisecond * 100)
+
+	multibuffer := make([]byte, 0)
+	widx := 0
+	buf := make([]byte, 8092)
+	for {
+		n, err := clientconn.Read(buf[widx:])
+		if err != nil {
+			fmt.Printf("Failed to read from conn.")
+			fmt.Println(err)
+			return
+		}
+		widx += n
+		for {
+			pack, ok := messages.NextPacket(buf[:widx])
+			if !ok {
+				break
+			}
+			copy(buf, buf[pack.Len():])
+			widx -= pack.Len()
+			tmsg, ok := pack.NetMsg.(*messages.Multipart)
+			if ok {
+				multibuffer = append(multibuffer, tmsg.Content...)
+			}
+		}
+	}
+
 }

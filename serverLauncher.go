@@ -13,7 +13,8 @@ func main() {
 
 	fmt.Println("Starting Server!")
 	// Launch server manager
-	go server.RunServer(exit)
+	s := server.NewServer(exit)
+	go server.RunServer(s, exit)
 
 	fmt.Println("Server started. Press a ctrl+c to exit.")
 

@@ -42,7 +42,7 @@ func (s *Server) handleMessage() {
 	}
 	if _, ok := s.connections[addrkey]; !ok {
 		s.clientID++
-		// fmt.Printf("New Connection: %v, ID: %d\n", addrkey, s.clientID)
+		fmt.Printf("New Connection: %v, ID: %d\n", addrkey, s.clientID)
 		s.connections[addrkey] = &Client{
 			address:         addr,
 			FromNetwork:     NewBytePipe(0),
@@ -60,15 +60,17 @@ func (s *Server) DisconnectConn(addrkey string) {
 	delete(s.connections, addrkey)
 }
 
+var maxPacketSize int = 512
+
 func (s *Server) sendMessages() {
 	for {
 		msg := <-s.outToNetwork
 		msg.msg.Frame.Seq = msg.dest.Seq
 		msgcontent := msg.msg.Pack()
-		totallen := msg.msg.Len()
-		if totallen > 512 {
+		totallen := len(msgcontent)
+		if totallen > maxPacketSize {
 			// calculate how many parts we have to split this into
-			maxsize := 512 - (&messages.Multipart{}).Len() - messages.FrameLen
+			maxsize := maxPacketSize - (&messages.Multipart{}).Len() - messages.FrameLen
 			parts := totallen/maxsize + 1
 			msg.dest.GroupID++
 			bstart := 0
@@ -77,7 +79,6 @@ func (s *Server) sendMessages() {
 				if i+1 == parts {
 					bend = bstart + (totallen % maxsize)
 				}
-
 				wrapper := &messages.Multipart{
 					ID:       uint16(i),
 					GroupID:  msg.dest.GroupID,
@@ -93,6 +94,7 @@ func (s *Server) sendMessages() {
 					NetMsg: wrapper,
 				}
 				msg.dest.Seq++
+				bstart = bend
 				if n, err := s.conn.WriteToUDP(packet.Pack(), msg.dest.address); err != nil {
 					fmt.Printf("Error writing to client(%v): %s, Bytes Written:  %d", msg.dest, err, n)
 				}
@@ -107,7 +109,7 @@ func (s *Server) sendMessages() {
 	}
 }
 
-func RunServer(exit chan int) {
+func NewServer(exit chan int) Server {
 	toGameManager := make(chan GameMessage, 1024)
 	outToNetwork := make(chan OutgoingMessage, 1024)
 
@@ -133,6 +135,10 @@ func RunServer(exit chan int) {
 		os.Exit(1)
 	}
 
+	return s
+}
+
+func RunServer(s Server, exit chan int) {
 	go s.sendMessages()
 	fmt.Println("Server Started!")
 

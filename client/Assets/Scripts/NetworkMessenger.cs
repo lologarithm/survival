@@ -82,6 +82,7 @@ public class NetworkMessenger : MonoBehaviour
 				msg.content = pstream.ToArray();
 				msg.content_length = (ushort)pstream.Length;
 				this.sending_socket.Send(msg.MessageBytes());
+                bstart = bend
 			}
 		}
 		else
