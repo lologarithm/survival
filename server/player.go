@@ -6,12 +6,12 @@ type User struct {
 	Client   *Client
 }
 
-// Account is mostly a container for characters and has a password to use them.
+// Account is mostly a container for character and has a password to use them.
 type Account struct {
-	ID         uint32
-	Name       string
-	Password   string
-	Characters []*Character
+	ID        uint32
+	Name      string
+	Password  string
+	Character *Character
 }
 
 // Character is a single entity in the game.

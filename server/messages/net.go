@@ -24,9 +24,6 @@ const (
 	CreateAcctRespMsgType
 	LoginMsgType
 	LoginRespMsgType
-	CreateCharMsgType
-	CreateCharRespMsgType
-	DeleteCharMsgType
 	CharacterMsgType
 	ListGamesMsgType
 	ListGamesRespMsgType
@@ -35,7 +32,7 @@ const (
 	JoinGameMsgType
 	GameConnectedMsgType
 	EntityMsgType
-	EntityMoveMsgType
+	MovePlayerMsgType
 	UseAbilityMsgType
 	AbilityResultMsgType
 	EndGameMsgType
@@ -59,12 +56,6 @@ func ParseNetMessage(packet Packet, content []byte) Net {
 		msg = &Login{}
 	case LoginRespMsgType:
 		msg = &LoginResp{}
-	case CreateCharMsgType:
-		msg = &CreateChar{}
-	case CreateCharRespMsgType:
-		msg = &CreateCharResp{}
-	case DeleteCharMsgType:
-		msg = &DeleteChar{}
 	case CharacterMsgType:
 		msg = &Character{}
 	case ListGamesMsgType:
@@ -81,8 +72,8 @@ func ParseNetMessage(packet Packet, content []byte) Net {
 		msg = &GameConnected{}
 	case EntityMsgType:
 		msg = &Entity{}
-	case EntityMoveMsgType:
-		msg = &EntityMove{}
+	case MovePlayerMsgType:
+		msg = &MovePlayer{}
 	case UseAbilityMsgType:
 		msg = &UseAbility{}
 	case AbilityResultMsgType:
@@ -164,6 +155,8 @@ func (m *Disconnected) Len() int {
 type CreateAcct struct {
 	Name string
 	Password string
+	CharName string
+	DefaultKit byte
 }
 
 func (m *CreateAcct) Serialize(buffer *bytes.Buffer) {
@@ -171,6 +164,9 @@ func (m *CreateAcct) Serialize(buffer *bytes.Buffer) {
 	buffer.WriteString(m.Name)
 	binary.Write(buffer, binary.LittleEndian, int32(len(m.Password)))
 	buffer.WriteString(m.Password)
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.CharName)))
+	buffer.WriteString(m.CharName)
+	buffer.WriteByte(m.DefaultKit)
 }
 
 func (m *CreateAcct) Deserialize(buffer *bytes.Buffer) {
@@ -184,12 +180,20 @@ func (m *CreateAcct) Deserialize(buffer *bytes.Buffer) {
 	temp1_1 := make([]byte, l1_1)
 	buffer.Read(temp1_1)
 	m.Password = string(temp1_1)
+	var l2_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l2_1)
+	temp2_1 := make([]byte, l2_1)
+	buffer.Read(temp2_1)
+	m.CharName = string(temp2_1)
+	m.DefaultKit, _ = buffer.ReadByte()
 }
 
 func (m *CreateAcct) Len() int {
 	mylen := 0
 	mylen += 4 + len(m.Name)
 	mylen += 4 + len(m.Password)
+	mylen += 4 + len(m.CharName)
+	mylen += 1
 	return mylen
 }
 
@@ -256,7 +260,7 @@ type LoginResp struct {
 	Success byte
 	Name string
 	AccountID uint32
-	Characters []*Character
+	Character *Character
 }
 
 func (m *LoginResp) Serialize(buffer *bytes.Buffer) {
@@ -264,10 +268,7 @@ func (m *LoginResp) Serialize(buffer *bytes.Buffer) {
 	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
 	buffer.WriteString(m.Name)
 	binary.Write(buffer, binary.LittleEndian, m.AccountID)
-	binary.Write(buffer, binary.LittleEndian, int32(len(m.Characters)))
-	for _, v2 := range m.Characters {
-		v2.Serialize(buffer)
-	}
+	m.Character.Serialize(buffer)
 }
 
 func (m *LoginResp) Deserialize(buffer *bytes.Buffer) {
@@ -278,13 +279,8 @@ func (m *LoginResp) Deserialize(buffer *bytes.Buffer) {
 	buffer.Read(temp1_1)
 	m.Name = string(temp1_1)
 	binary.Read(buffer, binary.LittleEndian, &m.AccountID)
-	var l3_1 int32
-	binary.Read(buffer, binary.LittleEndian, &l3_1)
-	m.Characters = make([]*Character, l3_1)
-	for i := 0; i < int(l3_1); i++ {
-		m.Characters[i] = new(Character)
-		m.Characters[i].Deserialize(buffer)
-	}
+	m.Character = new(Character)
+	m.Character.Deserialize(buffer)
 }
 
 func (m *LoginResp) Len() int {
@@ -292,84 +288,7 @@ func (m *LoginResp) Len() int {
 	mylen += 1
 	mylen += 4 + len(m.Name)
 	mylen += 4
-	mylen += 4
-	for _, v2 := range m.Characters {
-	_ = v2
-		mylen += v2.Len()
-	}
-
-	return mylen
-}
-
-type CreateChar struct {
-	AccountID uint32
-	Name string
-	Kit byte
-}
-
-func (m *CreateChar) Serialize(buffer *bytes.Buffer) {
-	binary.Write(buffer, binary.LittleEndian, m.AccountID)
-	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
-	buffer.WriteString(m.Name)
-	buffer.WriteByte(m.Kit)
-}
-
-func (m *CreateChar) Deserialize(buffer *bytes.Buffer) {
-	binary.Read(buffer, binary.LittleEndian, &m.AccountID)
-	var l1_1 int32
-	binary.Read(buffer, binary.LittleEndian, &l1_1)
-	temp1_1 := make([]byte, l1_1)
-	buffer.Read(temp1_1)
-	m.Name = string(temp1_1)
-	m.Kit, _ = buffer.ReadByte()
-}
-
-func (m *CreateChar) Len() int {
-	mylen := 0
-	mylen += 4
-	mylen += 4 + len(m.Name)
-	mylen += 1
-	return mylen
-}
-
-type CreateCharResp struct {
-	AccountID uint32
-	Character *Character
-}
-
-func (m *CreateCharResp) Serialize(buffer *bytes.Buffer) {
-	binary.Write(buffer, binary.LittleEndian, m.AccountID)
-	m.Character.Serialize(buffer)
-}
-
-func (m *CreateCharResp) Deserialize(buffer *bytes.Buffer) {
-	binary.Read(buffer, binary.LittleEndian, &m.AccountID)
-	m.Character = new(Character)
-	m.Character.Deserialize(buffer)
-}
-
-func (m *CreateCharResp) Len() int {
-	mylen := 0
-	mylen += 4
 	mylen += m.Character.Len()
-	return mylen
-}
-
-type DeleteChar struct {
-	ID uint32
-}
-
-func (m *DeleteChar) Serialize(buffer *bytes.Buffer) {
-	binary.Write(buffer, binary.LittleEndian, m.ID)
-}
-
-func (m *DeleteChar) Deserialize(buffer *bytes.Buffer) {
-	binary.Read(buffer, binary.LittleEndian, &m.ID)
-}
-
-func (m *DeleteChar) Len() int {
-	mylen := 0
-	mylen += 4
 	return mylen
 }
 
@@ -492,20 +411,13 @@ func (m *CreateGame) Len() int {
 
 type CreateGameResp struct {
 	Name string
-	ID uint32
-	Seed uint64
-	Entities []*Entity
+	Game *GameConnected
 }
 
 func (m *CreateGameResp) Serialize(buffer *bytes.Buffer) {
 	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
 	buffer.WriteString(m.Name)
-	binary.Write(buffer, binary.LittleEndian, m.ID)
-	binary.Write(buffer, binary.LittleEndian, m.Seed)
-	binary.Write(buffer, binary.LittleEndian, int32(len(m.Entities)))
-	for _, v2 := range m.Entities {
-		v2.Serialize(buffer)
-	}
+	m.Game.Serialize(buffer)
 }
 
 func (m *CreateGameResp) Deserialize(buffer *bytes.Buffer) {
@@ -514,59 +426,43 @@ func (m *CreateGameResp) Deserialize(buffer *bytes.Buffer) {
 	temp0_1 := make([]byte, l0_1)
 	buffer.Read(temp0_1)
 	m.Name = string(temp0_1)
-	binary.Read(buffer, binary.LittleEndian, &m.ID)
-	binary.Read(buffer, binary.LittleEndian, &m.Seed)
-	var l3_1 int32
-	binary.Read(buffer, binary.LittleEndian, &l3_1)
-	m.Entities = make([]*Entity, l3_1)
-	for i := 0; i < int(l3_1); i++ {
-		m.Entities[i] = new(Entity)
-		m.Entities[i].Deserialize(buffer)
-	}
+	m.Game = new(GameConnected)
+	m.Game.Deserialize(buffer)
 }
 
 func (m *CreateGameResp) Len() int {
 	mylen := 0
 	mylen += 4 + len(m.Name)
-	mylen += 4
-	mylen += 8
-	mylen += 4
-	for _, v2 := range m.Entities {
-	_ = v2
-		mylen += v2.Len()
-	}
-
+	mylen += m.Game.Len()
 	return mylen
 }
 
 type JoinGame struct {
 	ID uint32
-	CharID uint32
 }
 
 func (m *JoinGame) Serialize(buffer *bytes.Buffer) {
 	binary.Write(buffer, binary.LittleEndian, m.ID)
-	binary.Write(buffer, binary.LittleEndian, m.CharID)
 }
 
 func (m *JoinGame) Deserialize(buffer *bytes.Buffer) {
 	binary.Read(buffer, binary.LittleEndian, &m.ID)
-	binary.Read(buffer, binary.LittleEndian, &m.CharID)
 }
 
 func (m *JoinGame) Len() int {
 	mylen := 0
 	mylen += 4
-	mylen += 4
 	return mylen
 }
 
 type GameConnected struct {
+	ID uint32
 	Seed uint64
 	Entities []*Entity
 }
 
 func (m *GameConnected) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, m.ID)
 	binary.Write(buffer, binary.LittleEndian, m.Seed)
 	binary.Write(buffer, binary.LittleEndian, int32(len(m.Entities)))
 	for _, v2 := range m.Entities {
@@ -575,11 +471,12 @@ func (m *GameConnected) Serialize(buffer *bytes.Buffer) {
 }
 
 func (m *GameConnected) Deserialize(buffer *bytes.Buffer) {
+	binary.Read(buffer, binary.LittleEndian, &m.ID)
 	binary.Read(buffer, binary.LittleEndian, &m.Seed)
-	var l1_1 int32
-	binary.Read(buffer, binary.LittleEndian, &l1_1)
-	m.Entities = make([]*Entity, l1_1)
-	for i := 0; i < int(l1_1); i++ {
+	var l2_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l2_1)
+	m.Entities = make([]*Entity, l2_1)
+	for i := 0; i < int(l2_1); i++ {
 		m.Entities[i] = new(Entity)
 		m.Entities[i].Deserialize(buffer)
 	}
@@ -587,6 +484,7 @@ func (m *GameConnected) Deserialize(buffer *bytes.Buffer) {
 
 func (m *GameConnected) Len() int {
 	mylen := 0
+	mylen += 4
 	mylen += 8
 	mylen += 4
 	for _, v2 := range m.Entities {
@@ -605,6 +503,7 @@ type Entity struct {
 	Y int32
 	Height int32
 	Width int32
+	Angle int16
 	HealthPercent byte
 }
 
@@ -616,6 +515,7 @@ func (m *Entity) Serialize(buffer *bytes.Buffer) {
 	binary.Write(buffer, binary.LittleEndian, m.Y)
 	binary.Write(buffer, binary.LittleEndian, m.Height)
 	binary.Write(buffer, binary.LittleEndian, m.Width)
+	binary.Write(buffer, binary.LittleEndian, m.Angle)
 	buffer.WriteByte(m.HealthPercent)
 }
 
@@ -627,6 +527,7 @@ func (m *Entity) Deserialize(buffer *bytes.Buffer) {
 	binary.Read(buffer, binary.LittleEndian, &m.Y)
 	binary.Read(buffer, binary.LittleEndian, &m.Height)
 	binary.Read(buffer, binary.LittleEndian, &m.Width)
+	binary.Read(buffer, binary.LittleEndian, &m.Angle)
 	m.HealthPercent, _ = buffer.ReadByte()
 }
 
@@ -639,29 +540,30 @@ func (m *Entity) Len() int {
 	mylen += 4
 	mylen += 4
 	mylen += 4
+	mylen += 2
 	mylen += 1
 	return mylen
 }
 
-type EntityMove struct {
+type MovePlayer struct {
 	EntityID uint32
 	TickID uint32
 	Direction uint16
 }
 
-func (m *EntityMove) Serialize(buffer *bytes.Buffer) {
+func (m *MovePlayer) Serialize(buffer *bytes.Buffer) {
 	binary.Write(buffer, binary.LittleEndian, m.EntityID)
 	binary.Write(buffer, binary.LittleEndian, m.TickID)
 	binary.Write(buffer, binary.LittleEndian, m.Direction)
 }
 
-func (m *EntityMove) Deserialize(buffer *bytes.Buffer) {
+func (m *MovePlayer) Deserialize(buffer *bytes.Buffer) {
 	binary.Read(buffer, binary.LittleEndian, &m.EntityID)
 	binary.Read(buffer, binary.LittleEndian, &m.TickID)
 	binary.Read(buffer, binary.LittleEndian, &m.Direction)
 }
 
-func (m *EntityMove) Len() int {
+func (m *MovePlayer) Len() int {
 	mylen := 0
 	mylen += 4
 	mylen += 4

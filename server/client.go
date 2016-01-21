@@ -50,7 +50,8 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 
 	go func() {
 		msg := <-client.FromGameManager
-		atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&toGame)), unsafe.Pointer(&msg.ToGame))
+		tmsg := msg.(*ConnectedGame)
+		atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&toGame)), unsafe.Pointer(&tmsg.ToGame))
 	}()
 	for client.Alive {
 		packet, ok := messages.NextPacket(client.buffer[:client.wIdx])
@@ -96,7 +97,7 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 		// Only try to parse if we have collected enough bytes.
 		if ok {
 			switch packet.Frame.MsgType {
-			case messages.CreateAcctMsgType, messages.LoginMsgType, messages.CreateCharMsgType, messages.DeleteCharMsgType, messages.ListGamesMsgType, messages.JoinGameMsgType, messages.CreateGameMsgType:
+			case messages.CreateAcctMsgType, messages.LoginMsgType, messages.ListGamesMsgType, messages.JoinGameMsgType, messages.CreateGameMsgType:
 				client.toGameManager <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
 			default:
 				if toGame == nil {

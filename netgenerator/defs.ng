@@ -15,6 +15,8 @@ class Disconnected {
 class CreateAcct {
  Name string
  Password string
+ CharName string
+ DefaultKit byte
 }
 
 class CreateAcctResp {
@@ -31,22 +33,7 @@ class LoginResp {
  Success byte
  Name string
  AccountID uint32
- Characters []*Character
-}
-
-class CreateChar {
- AccountID uint32
- Name string
- Kit byte
-}
-
-class CreateCharResp {
- AccountID uint32
  Character *Character
-}
-
-class DeleteChar {
- ID uint32
 }
 
 class Character {
@@ -68,17 +55,15 @@ class CreateGame {
 
 class CreateGameResp {
  Name string
- ID uint32
- Seed uint64
- Entities []*Entity
+ Game *GameConnected
 }
 
 class JoinGame {
  ID uint32
- CharID uint32
 }
 
 class GameConnected {
+ ID uint32
  Seed uint64
  Entities []*Entity
 }
@@ -91,10 +76,11 @@ class Entity {
  Y int32
  Height int32
  Width int32
+ Angle int16
  HealthPercent byte
 }
 
-class EntityMove {
+class MovePlayer {
  EntityID uint32
  TickID uint32
  Direction uint16

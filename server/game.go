@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 
@@ -11,18 +12,19 @@ import (
 	"github.com/lologarithm/survival/server/messages"
 )
 
-const ChunkSize int32 = 2000
+const ChunkSize int32 = 10000
 
 // Game represents a single game
 type Game struct {
 	Name string
 	Seed uint64 // Select a seed when starting the game!
 
-	// Player data
+	// map character ID to client
 	Clients map[uint32]*Client
 
 	// Game can only write to this channel, not read.
 	IntoGameManager chan<- GameMessage
+	FromGameManager chan InternalMessage
 	// FromNetwork is read here and written elsewhere.
 	FromNetwork <-chan GameMessage // Messages from players.
 
@@ -65,21 +67,28 @@ func (g *Game) Run() {
 			case msg := <-g.FromNetwork:
 				fmt.Printf("GameManager: Received message: %T\n", msg)
 				switch msg.mtype {
-				case messages.JoinGameMsgType:
-					tmsg := msg.net.(*messages.JoinGame)
-
-					player := &Entity{
-						ID:     tmsg.CharID,
-						EType:  3, // TODO: make constnats
-						Seed:   0, // players dont need a seed?
-						Height: 6,
-						Width:  6,
-						Body:   physics.NewRigidBody(tmsg.CharID, physics.Vect2{1000, 1000}, physics.Vect2{}, 0, 100),
+				case messages.MovePlayerMsgType:
+					tmsg := msg.net.(*messages.MovePlayer)
+					for _, ent := range g.World.Entities {
+						if ent.ID == tmsg.EntityID {
+							ent.Body.Angle = float64(tmsg.Direction%365) * math.Pi / 180.0
+							ent.Body.Velocity = physics.Vect2{X: int32(math.Cos(ent.Body.Angle) * 50), Y: int32(math.Sin(ent.Body.Angle)) * 50}
+						}
 					}
-					g.World.Space.AddEntity(player.Body, false)
-				case messages.EntityMoveMsgType:
 				default:
 					fmt.Printf("GameManager.go:RunGame(): UNKNOWN MESSAGE TYPE: %T\n", msg)
+				}
+			case imsg := <-g.FromGameManager:
+				switch timsg := imsg.(type) {
+				case AddPlayer:
+					player := &Entity{
+						ID:    timsg.Entity.ID,
+						EType: 3, // TODO: make constants
+						Seed:  timsg.Entity.Seed,
+						Body:  physics.NewRigidBody(timsg.Entity.ID, 22, 46, physics.Vect2{X: 5000, Y: 5000}, physics.Vect2{}, 0, 100),
+					}
+					g.World.Space.AddEntity(player.Body, false)
+					g.Clients[timsg.Entity.ID] = timsg.Client
 				}
 			case <-g.Exit:
 				fmt.Println("EXITING Game Manager")
@@ -130,8 +139,8 @@ func (g *Game) SpawnChunk(x, y uint32) {
 		oh.Write(tb[:4])
 
 		oSeed := oh.Sum64()
-		ox := int32(oSeed>>48) / 33
-		oy := int32((oSeed<<16)>>48) / 33
+		ox := int32(oSeed>>48) / (math.MaxUint16/ChunkSize + 1)
+		oy := int32((oSeed<<16)>>48) / (math.MaxUint16/ChunkSize + 1)
 
 		te := &Entity{
 			Body: &physics.RigidBody{
@@ -139,19 +148,19 @@ func (g *Game) SpawnChunk(x, y uint32) {
 					X: ox,
 					Y: oy,
 				},
+				Height: 10,
+				Width:  10,
 			},
-			Seed:   oSeed,
-			Height: 5,
-			Width:  5,
-			EType:  0,
+			Seed:  oSeed,
+			EType: 0,
 		}
 		// Check if existing rock overlaps this rock, if so, make old rock bigger!
 		intersected := false
 		for _, t := range g.World.Entities {
 			if t.Intersects(te) {
 				if t.EType == te.EType {
-					t.Height += 3
-					t.Width += 3
+					t.Body.Height += 7
+					t.Body.Width += 7
 				}
 				intersected = true
 				break
@@ -176,19 +185,19 @@ func (g *Game) SpawnChunk(x, y uint32) {
 		oh.Write(tb[:4])
 
 		oSeed := oh.Sum64()
-		ox := int32(oSeed>>48) / 33
-		oy := int32((oSeed<<16)>>48) / 33
+		ox := int32(oSeed>>48) / (math.MaxUint16/ChunkSize + 1)
+		oy := int32((oSeed<<16)>>48) / (math.MaxUint16/ChunkSize + 1)
 		te := &Entity{
 			Body: &physics.RigidBody{
 				Position: physics.Vect2{
 					X: ox,
 					Y: oy,
 				},
+				Height: 100,
+				Width:  100,
 			},
-			Seed:   oSeed,
-			Height: 20,
-			Width:  20,
-			EType:  2,
+			Seed:  oSeed,
+			EType: 2,
 		}
 
 		// Check if existing tree overlaps this tree, if so, make old tree bigger!
@@ -196,8 +205,8 @@ func (g *Game) SpawnChunk(x, y uint32) {
 		for _, t := range g.World.Entities {
 			if t.Intersects(te) {
 				if t.EType == te.EType {
-					t.Height += 5
-					t.Width += 5
+					t.Body.Height += 75
+					t.Body.Width += 75
 				}
 				intersected = true
 				break
@@ -225,6 +234,7 @@ func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan G
 	g := &Game{
 		Name:            name,
 		IntoGameManager: toGameManager,
+		FromGameManager: make(chan InternalMessage, 100),
 		FromNetwork:     fromNetwork,
 		Seed:            seed,
 		World:           &GameWorld{},
@@ -235,12 +245,10 @@ func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan G
 
 // Entity represents a single object in the game.
 type Entity struct {
-	ID     uint32
-	EType  uint16
-	Seed   uint64
-	Height int32
-	Width  int32
-	Body   *physics.RigidBody
+	ID    uint32
+	EType uint16
+	Seed  uint64
+	Body  *physics.RigidBody
 }
 
 func (e *Entity) toMsg() *messages.Entity {
@@ -248,8 +256,9 @@ func (e *Entity) toMsg() *messages.Entity {
 		ID:     e.ID,
 		X:      e.Body.Position.X,
 		Y:      e.Body.Position.Y,
-		Height: e.Height,
-		Width:  e.Width,
+		Height: e.Body.Height,
+		Width:  e.Body.Width,
+		Angle:  int16(e.Body.Angle * 180 / math.Pi),
 		EType:  e.EType,
 		Seed:   e.Seed,
 	}
@@ -259,7 +268,7 @@ func (e *Entity) toMsg() *messages.Entity {
 
 // Intersects calculates if two entities overlap -- used currently for chunk generation.
 func (e *Entity) Intersects(o *Entity) bool {
-	if e.Body.Position.X > o.Body.Position.X+o.Width || e.Body.Position.X+e.Width < o.Body.Position.X || e.Body.Position.Y > o.Body.Position.Y+o.Height || e.Body.Position.Y+e.Height < o.Body.Position.Y {
+	if e.Body.Position.X > o.Body.Position.X+o.Body.Width || e.Body.Position.X+e.Body.Width < o.Body.Position.X || e.Body.Position.Y > o.Body.Position.Y+o.Body.Height || e.Body.Position.Y+e.Body.Height < o.Body.Position.Y {
 		return false
 	}
 	return true
@@ -272,7 +281,15 @@ type GameMessage struct {
 	mtype  messages.MessageType
 }
 
-// InternalMessage TODO: Is this needed?
-type InternalMessage struct {
+// InternalMessage is for messages between components that never leaves the server.
+type InternalMessage interface {
+}
+
+type ConnectedGame struct {
 	ToGame chan<- GameMessage
+}
+
+type AddPlayer struct {
+	Entity *Entity
+	Client *Client
 }

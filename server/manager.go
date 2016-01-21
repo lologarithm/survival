@@ -74,14 +74,13 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 		gm.handleConnection(msg)
 	case messages.CreateAcctMsgType:
 		gm.createAccount(msg)
-	case messages.CreateCharMsgType:
-		gm.createCharacter(msg)
 	case messages.LoginMsgType:
 		gm.loginUser(msg)
 	case messages.JoinGameMsgType:
 		// TODO: for now just join the default game?
 	case messages.CreateGameMsgType:
 		gm.createGame(msg)
+
 		// jgm := &messages.JoinGame{}
 		// TODO: the user that created it joins it!
 	case messages.ListGamesMsgType:
@@ -95,12 +94,10 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 		}
 		resp := NewOutgoingMsg(msg.client, messages.ListGamesRespMsgType, gameList)
 		gm.ToNetwork <- resp
-
 	default:
 		// These messages probably go to a game?
 		// TODO: Probably have a direct conn to a game from the *Client
 	}
-
 }
 
 func (gm *GameManager) createGame(msg GameMessage) {
@@ -109,15 +106,26 @@ func (gm *GameManager) createGame(msg GameMessage) {
 	netchan := make(chan GameMessage, 100)
 	g := NewGame(cgm.Name, gm.FromGames, netchan)
 	g.SpawnChunk(0, 0)
+
+	for _, a := range gm.Users[msg.client.ID].Accounts {
+		g.FromGameManager <- &AddPlayer{
+			Entity: &Entity{
+				ID: a.Character.ID,
+			},
+			Client: msg.client,
+		}
+	}
 	gm.NextGameID++
 	gm.Games[gm.NextGameID] = g
 	cgr := &messages.CreateGameResp{
-		Name:     cgm.Name,
-		ID:       gm.NextGameID,
-		Seed:     g.Seed,
-		Entities: g.World.EntitiesMsg(),
+		Name: cgm.Name,
+		Game: &messages.GameConnected{
+			ID:       gm.NextGameID,
+			Seed:     g.Seed,
+			Entities: g.World.EntitiesMsg(),
+		},
 	}
-	msg.client.FromGameManager <- InternalMessage{
+	msg.client.FromGameManager <- &ConnectedGame{
 		ToGame: netchan,
 	}
 	resp := NewOutgoingMsg(msg.client, messages.CreateGameRespMsgType, cgr)
@@ -141,36 +149,6 @@ func (gm *GameManager) handleDisconnect(msg GameMessage) {
 	}
 }
 
-func (gm *GameManager) createCharacter(msg GameMessage) {
-	netmsg := msg.net.(*messages.CreateChar)
-	ac := &messages.CreateCharResp{
-		AccountID: netmsg.AccountID,
-		Character: &messages.Character{
-			Name: netmsg.Name,
-			ID:   0,
-		},
-	}
-	var acct *Account
-	// 1. Validate user is logged in as account specified.
-	for _, uact := range gm.Users[msg.client.ID].Accounts {
-		if uact.ID == netmsg.AccountID {
-			acct = uact
-		}
-	}
-	gm.CharID++
-	if acct != nil {
-		char := &Character{
-			ID:    gm.CharID,
-			Name:  netmsg.Name,
-			Items: []*Item{},
-		}
-		acct.Characters = append(acct.Characters, char)
-		gm.Characters[gm.CharID] = char
-	}
-	resp := NewOutgoingMsg(msg.client, messages.CreateCharRespMsgType, ac)
-	gm.ToNetwork <- resp
-}
-
 func (gm *GameManager) createAccount(msg GameMessage) {
 	netmsg := msg.net.(*messages.CreateAcct)
 	ac := &messages.CreateAcctResp{
@@ -180,13 +158,19 @@ func (gm *GameManager) createAccount(msg GameMessage) {
 
 	if _, ok := gm.AcctByName[netmsg.Name]; !ok {
 		gm.AccountID++
+		gm.CharID++
 		ac.AccountID = gm.AccountID
 		gm.Accounts[ac.AccountID] = &Account{
-			ID:         ac.AccountID,
-			Name:       netmsg.Name,
-			Password:   netmsg.Password,
-			Characters: []*Character{},
+			ID:       ac.AccountID,
+			Name:     netmsg.Name,
+			Password: netmsg.Password,
+			Character: &Character{
+				ID:    gm.CharID,
+				Name:  netmsg.CharName,
+				Items: []*Item{},
+			},
 		}
+		gm.Characters[gm.CharID] = gm.Accounts[ac.AccountID].Character
 		gm.AcctByName[netmsg.Name] = gm.Accounts[ac.AccountID]
 		gm.Users[msg.client.ID].Accounts = append(gm.Users[msg.client.ID].Accounts, gm.Accounts[ac.AccountID])
 	}
@@ -205,12 +189,9 @@ func (gm *GameManager) loginUser(msg GameMessage) {
 		if acct.Password == tmsg.Password {
 			log.Printf("Logging in account: %s", tmsg.Name)
 			lr.AccountID = acct.ID
-			lr.Characters = make([]*messages.Character, len(acct.Characters))
-			for idx, ch := range acct.Characters {
-				lr.Characters[idx] = &messages.Character{
-					Name: ch.Name,
-					ID:   ch.ID,
-				}
+			lr.Character = &messages.Character{
+				Name: acct.Character.Name,
+				ID:   acct.Character.ID,
 			}
 			gm.Users[msg.client.ID].Accounts = append(gm.Users[msg.client.ID].Accounts, acct)
 		}
