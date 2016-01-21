@@ -1,6 +1,10 @@
 package physics
 
-import "github.com/lologarithm/survival/physics/quadtree"
+import (
+	"math"
+
+	"github.com/lologarithm/survival/physics/quadtree"
+)
 
 func CrossProduct(a Vect2, b Vect2) int32 {
 	return a.X*b.Y - a.Y*b.X
@@ -48,49 +52,24 @@ type RigidBody struct {
 }
 
 func (rb RigidBody) BoundingBox() quadtree.BoundingBox {
-	// if rb.Angle != 0 && rb.Angle != math.Pi && rb.Angle != math.Pi*2 {
-	// 	ct := math.Cos(rb.Angle)
-	// 	st := math.Sin(rb.Angle)
-	//
-	// 	A_y := (rb.Height / 2)
-	// 	A_x := (rb.Width / 2)
-	//
-	// 	hct := int32(float64(rb.Height) * ct)
-	// 	wct := int32(float64(rb.Width) * ct)
-	// 	hst := int32(float64(rb.Height) * st)
-	// 	wst := int32(float64(rb.Width) * st)
-	//
-	// 	var y_min, y_max, x_min, x_max int32
-	// 	if rb.Angle > 0 {
-	// 		if rb.Angle < math.Pi/2 {
-	// 			y_min = A_y
-	// 			y_max = A_y + hct + wst
-	// 			x_min = A_x - hst
-	// 			x_max = A_x + wct
-	// 		} else {
-	// 			// 90 <= theta <= 180
-	// 			y_min = A_y + hct
-	// 			y_max = A_y + wst
-	// 			x_min = A_x - hst + wct
-	// 			x_max = A_x
-	// 		}
-	// 	} else {
-	// 		if rb.Angle > -math.Pi/2 {
-	// 			y_min = A_y + wst
-	// 			y_max = A_y + hct
-	// 			x_min = A_x
-	// 			x_max = A_x + wct - hst
-	// 		} else {
-	// 			// -180 <= theta <= -90
-	// 			y_min = A_y + wst + hct
-	// 			y_max = A_y
-	// 			x_min = A_x + wct
-	// 			x_max = A_x - hst
-	// 		}
-	// 	}
-	// 	quadtree.NewBoundingBox(x_min, x_max, y_min, y_max)
-	// }
-	return quadtree.NewBoundingBox(rb.Position.X, rb.Position.X+rb.Width, rb.Position.Y, rb.Position.Y+rb.Height)
+	hh := rb.Height / 2
+	hw := rb.Width / 2
+	if rb.Angle != 0 && rb.Angle != math.Pi && rb.Angle != math.Pi*2 {
+		s := math.Sin(rb.Angle)
+		c := math.Cos(rb.Angle)
+		if s < 0 {
+			s = -s
+		}
+		if c < 0 {
+			c = -c
+		}
+		wn := int32(float64(rb.Height)*s) + int32(float64(rb.Width)*c) // width of AABB
+		hwn := wn / 2
+		hn := int32(float64(rb.Height)*c) + int32(float64(rb.Width)*s) // height of AABB
+		hhn := hn / 2
+		return quadtree.NewBoundingBox(rb.Position.X-hwn, rb.Position.X+hwn, rb.Position.Y-hhn, rb.Position.Y+hhn)
+	}
+	return quadtree.NewBoundingBox(rb.Position.X-hw, rb.Position.X+hw, rb.Position.Y-hh, rb.Position.Y+hh)
 }
 
 func NewRigidBody(id uint32, h int32, w int32, pos Vect2, vel Vect2, angle float64, mass int32) *RigidBody {
