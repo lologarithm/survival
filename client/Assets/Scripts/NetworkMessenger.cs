@@ -126,6 +126,14 @@ public class NetworkMessenger : MonoBehaviour
 		this.sendNetPacket(MsgType.CreateGame, outmsg);
 	}
 
+    public void MovePlayer(Vector2 vect) {
+        float radians = Vector2.Angle(new Vector2(0, 1), vect);
+        ushort deg = radians * 180 / Math.PI;
+        MovePlayer mp = new MovePlayer();
+        mp.EntityID = this.characters[0].ID;
+        mp.Direction = deg;
+    }
+
 	private void ReceiveCallback(IAsyncResult result)
 	{
 		int bytesRead = 0;

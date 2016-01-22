@@ -73,6 +73,7 @@ func (g *Game) Run() {
 					for _, ent := range g.World.Entities {
 						if ent.ID == tmsg.EntityID {
 							ent.Body.Angle = float64(tmsg.Direction%365) * math.Pi / 180.0
+							// TODO: Replace hardcoded 50 with 'speed' setting of the character.
 							ent.Body.Velocity = physics.Vect2{X: int32(math.Cos(ent.Body.Angle) * 50), Y: int32(math.Sin(ent.Body.Angle)) * 50}
 							break
 						}
