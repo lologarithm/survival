@@ -22,6 +22,7 @@ class CreateAcct {
 class CreateAcctResp {
  AccountID uint32
  Name string
+ Character *Character
 }
 
 class Login {

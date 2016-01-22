@@ -159,9 +159,8 @@ func (gm *GameManager) createAccount(msg GameMessage) {
 	if _, ok := gm.AcctByName[netmsg.Name]; !ok {
 		gm.AccountID++
 		gm.CharID++
-		ac.AccountID = gm.AccountID
 		gm.Accounts[ac.AccountID] = &Account{
-			ID:       ac.AccountID,
+			ID:       gm.AccountID,
 			Name:     netmsg.Name,
 			Password: netmsg.Password,
 			Character: &Character{
@@ -170,6 +169,13 @@ func (gm *GameManager) createAccount(msg GameMessage) {
 				Items: []*Item{},
 			},
 		}
+
+		ac.AccountID = gm.AccountID
+		ac.Character = &messages.Character{
+			Name: netmsg.CharName,
+			ID:   gm.Accounts[gm.AccountID].Character.ID,
+		}
+
 		gm.Characters[gm.CharID] = gm.Accounts[ac.AccountID].Character
 		gm.AcctByName[netmsg.Name] = gm.Accounts[ac.AccountID]
 		gm.Users[msg.client.ID].Accounts = append(gm.Users[msg.client.ID].Accounts, gm.Accounts[ac.AccountID])
