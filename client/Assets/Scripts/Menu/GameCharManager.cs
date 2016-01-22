@@ -13,11 +13,6 @@ public class GameCharManager : MonoBehaviour {
     public GameObject charlistcontent;
     public GameObject toggleprefab;
 
-    public void handleCreateChar()
-    {
-        this.msger.CreateCharacter(charname.text);
-    }
-
     public void handleCreateGame()
     {
         this.msger.CreateGame(gamename.text);

@@ -82,7 +82,7 @@ public class NetworkMessenger : MonoBehaviour
 				msg.content = pstream.ToArray();
 				msg.content_length = (ushort)pstream.Length;
 				this.sending_socket.Send(msg.MessageBytes());
-                bstart = bend
+                bstart = bend;
 			}
 		}
 		else
@@ -100,6 +100,7 @@ public class NetworkMessenger : MonoBehaviour
 		CreateAcct outmsg = new CreateAcct();
 		outmsg.Name = name;
 		outmsg.Password = password;
+        outmsg.CharName = name;
 		this.sendNetPacket(MsgType.CreateAcct, outmsg);
 	}
 
@@ -111,15 +112,7 @@ public class NetworkMessenger : MonoBehaviour
 		this.sendNetPacket(MsgType.Login, login_msg);
 	}
 
-	public void CreateCharacter(string name)
-	{
-		CreateChar outmsg = new CreateChar();
-		outmsg.Name = name;
-		outmsg.AccountID = this.accounts[0];
-		this.sendNetPacket(MsgType.CreateChar, outmsg);
-	}
-
-	public void CreateGame(string name)
+    public void CreateGame(string name)
 	{
 		CreateGame outmsg = new CreateGame();
 		outmsg.Name = name;
@@ -245,15 +238,9 @@ public class NetworkMessenger : MonoBehaviour
 				}
 				// 5. clean up!
 				break;
-			case MsgType.CreateCharResp:
-				characters.Add(((CreateCharResp)parsedMsg).Character);
-				break;
 			case MsgType.LoginResp:
 				LoginResp lr = ((LoginResp)parsedMsg);
-				if (lr.Characters.Length > 0)
-				{
-					characters.AddRange(lr.Characters);
-				}
+				characters.Add(lr.Character);
 				accounts.Add(lr.AccountID);
 				break;
 			case MsgType.CreateAcctResp:
@@ -277,8 +264,8 @@ public class NetworkMessenger : MonoBehaviour
 				CreateGameResp cgr = ((CreateGameResp)parsedMsg);
 				GameInstance gi = new GameInstance();
 				gi.Name = cgr.Name;
-				gi.ID = cgr.ID;
-				gi.entities = cgr.Entities;
+				gi.ID = cgr.Game.ID;
+				gi.entities = cgr.Game.Entities;
 				games.Add(gi);
 				Debug.Log("Added game: " + gi.Name);
 				break;
