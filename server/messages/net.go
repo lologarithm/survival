@@ -200,12 +200,14 @@ func (m *CreateAcct) Len() int {
 type CreateAcctResp struct {
 	AccountID uint32
 	Name string
+	Character *Character
 }
 
 func (m *CreateAcctResp) Serialize(buffer *bytes.Buffer) {
 	binary.Write(buffer, binary.LittleEndian, m.AccountID)
 	binary.Write(buffer, binary.LittleEndian, int32(len(m.Name)))
 	buffer.WriteString(m.Name)
+	m.Character.Serialize(buffer)
 }
 
 func (m *CreateAcctResp) Deserialize(buffer *bytes.Buffer) {
@@ -215,12 +217,15 @@ func (m *CreateAcctResp) Deserialize(buffer *bytes.Buffer) {
 	temp1_1 := make([]byte, l1_1)
 	buffer.Read(temp1_1)
 	m.Name = string(temp1_1)
+	m.Character = new(Character)
+	m.Character.Deserialize(buffer)
 }
 
 func (m *CreateAcctResp) Len() int {
 	mylen := 0
 	mylen += 4
 	mylen += 4 + len(m.Name)
+	mylen += m.Character.Len()
 	return mylen
 }
 

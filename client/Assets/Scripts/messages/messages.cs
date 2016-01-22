@@ -159,11 +159,13 @@ public class CreateAcct : INet {
 public class CreateAcctResp : INet {
 	public uint AccountID;
 	public string Name;
+	public Character Character;
 
 	public void Serialize(BinaryWriter buffer) {
 		buffer.Write(this.AccountID);
 		buffer.Write((Int32)this.Name.Length);
 		buffer.Write(System.Text.Encoding.UTF8.GetBytes(this.Name));
+		this.Character.Serialize(buffer);
 	}
 
 	public void Deserialize(BinaryReader buffer) {
@@ -171,6 +173,8 @@ public class CreateAcctResp : INet {
 		int l1_1 = buffer.ReadInt32();
 		byte[] temp1_1 = buffer.ReadBytes(l1_1);
 		this.Name = System.Text.Encoding.UTF8.GetString(temp1_1);
+		this.Character = new Character();
+		this.Character.Deserialize(buffer);
 	}
 }
 
