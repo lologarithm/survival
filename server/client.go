@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"log"
 	"net"
-	"sync/atomic"
-	"unsafe"
 
 	"github.com/lologarithm/survival/server/messages"
 )
@@ -52,7 +50,7 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 		msg := <-client.FromGameManager
 		tmsg := msg.(*ConnectedGame)
 		log.Printf("got connected, hooked up toGame channel!")
-		atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&toGame)), unsafe.Pointer(&tmsg.ToGame))
+		toGame = tmsg.ToGame
 	}()
 	for client.Alive {
 		packet, ok := messages.NextPacket(client.buffer[:client.wIdx])

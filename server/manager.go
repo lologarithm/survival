@@ -77,10 +77,9 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 	case messages.LoginMsgType:
 		gm.loginUser(msg)
 	case messages.JoinGameMsgType:
-		// TODO: for now just join the default game?
+		// TODO: make this work
 	case messages.CreateGameMsgType:
 		gm.createGame(msg)
-
 		// jgm := &messages.JoinGame{}
 		// TODO: the user that created it joins it!
 	case messages.ListGamesMsgType:
@@ -106,7 +105,7 @@ func (gm *GameManager) createGame(msg GameMessage) {
 	netchan := make(chan GameMessage, 100)
 	g := NewGame(cgm.Name, gm.FromGames, netchan)
 	g.SpawnChunk(0, 0)
-
+	go g.Run()
 	for _, a := range gm.Users[msg.client.ID].Accounts {
 		g.FromGameManager <- &AddPlayer{
 			Entity: &Entity{

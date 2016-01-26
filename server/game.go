@@ -242,9 +242,12 @@ func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan G
 		FromGameManager: make(chan InternalMessage, 100),
 		FromNetwork:     fromNetwork,
 		Seed:            seed,
-		World:           &GameWorld{},
+		World: &GameWorld{
+			Space:    physics.NewSimulatedSpace(),
+			Entities: []*Entity{},
+			Chunks:   map[uint32]map[uint32]bool{}, // list of chunks that have been already created.
+		},
 	}
-	// go g.Run()
 	return g
 }
 
