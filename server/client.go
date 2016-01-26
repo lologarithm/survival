@@ -46,11 +46,12 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 	// TODO: When should this be cleaned out?
 	partialMessages := map[uint32][]*messages.Multipart{}
 
-	var toGame chan<- GameMessage // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
+	var toGame chan<- GameMessage = nil // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
 
 	go func() {
 		msg := <-client.FromGameManager
 		tmsg := msg.(*ConnectedGame)
+		log.Printf("got connected, hooked up toGame channel!")
 		atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&toGame)), unsafe.Pointer(&tmsg.ToGame))
 	}()
 	for client.Alive {
