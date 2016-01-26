@@ -8,12 +8,13 @@ public class PlayerController : MonoBehaviour {
 
     // Use this for initialization
     void Start () {
-	
+        GameObject manager = GameObject.Find("NetworkMessenger");
+        this.msger = manager.GetComponent<NetworkMessenger>();
 	}
 	
 	// Update is called once per frame
 	void Update () {
-        var moveVector = new Vector2();
+        Vector2 moveVector = new Vector2(); 
         if (isPressed(ControlConst.MoveUp))
         {
             moveVector = moveVector + new Vector2(0, 1);
@@ -30,10 +31,12 @@ public class PlayerController : MonoBehaviour {
         {
             moveVector += new Vector2(1, 0);
         }
-
-        moveVector = moveVector.normalized;
-        //Debug.Log(moveVector.ToString());
-
+        if (moveVector.x != 0 || moveVector.y != 0) {
+            moveVector = moveVector.normalized;
+            //Debug.Log(moveVector.ToString());
+            msger.MovePlayer(moveVector);
+        }
+            
         foreach (ControlConst ability in ControlConst.Abilities)
         {
             if (isPressed(ability))

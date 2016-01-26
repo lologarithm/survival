@@ -16,6 +16,6 @@ func TestGameSpawning(t *testing.T) {
 		if t.EType == 2 {
 			name = "Tree"
 		}
-		fmt.Printf("Entity %s %3d: Size: %2d X:%3d Y:%3d\n", name, i, t.Height, t.Body.Position.X, t.Body.Position.Y)
+		fmt.Printf("Entity %s %3d: Size: %2d X:%3d Y:%3d\n", name, i, t.Body.Height, t.Body.Position.X, t.Body.Position.Y)
 	}
 }

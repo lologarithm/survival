@@ -72,11 +72,17 @@ func BenchmarkServerParsing(b *testing.B) {
 		Password: "testpass",
 	})
 	msgBytes := packet.Pack()
+	st := time.Now()
+
 	b.ResetTimer()
+	t := 0
 	for i := 0; i < b.N; i++ {
 		fakeClient.FromNetwork.Write(msgBytes)
 		<-gamechan
+		t += len(msgBytes)
 	}
+	b.StopTimer()
+	log.Printf("bytes/s processed: %.0f", float64(t)/time.Now().Sub(st).Seconds())
 }
 
 func TestMultipartMessage(t *testing.T) {
@@ -151,5 +157,4 @@ func TestMultipartMessage(t *testing.T) {
 			}
 		}
 	}
-
 }

@@ -159,7 +159,7 @@ func (gm *GameManager) createAccount(msg GameMessage) {
 	if _, ok := gm.AcctByName[netmsg.Name]; !ok {
 		gm.AccountID++
 		gm.CharID++
-		gm.Accounts[ac.AccountID] = &Account{
+		gm.Accounts[gm.AccountID] = &Account{
 			ID:       gm.AccountID,
 			Name:     netmsg.Name,
 			Password: netmsg.Password,
@@ -176,9 +176,9 @@ func (gm *GameManager) createAccount(msg GameMessage) {
 			ID:   gm.Accounts[gm.AccountID].Character.ID,
 		}
 
-		gm.Characters[gm.CharID] = gm.Accounts[ac.AccountID].Character
-		gm.AcctByName[netmsg.Name] = gm.Accounts[ac.AccountID]
-		gm.Users[msg.client.ID].Accounts = append(gm.Users[msg.client.ID].Accounts, gm.Accounts[ac.AccountID])
+		gm.Characters[gm.CharID] = gm.Accounts[gm.AccountID].Character
+		gm.AcctByName[netmsg.Name] = gm.Accounts[gm.AccountID]
+		gm.Users[msg.client.ID].Accounts = append(gm.Users[msg.client.ID].Accounts, gm.Accounts[gm.AccountID])
 	}
 
 	resp := NewOutgoingMsg(msg.client, messages.CreateAcctRespMsgType, ac)
@@ -188,8 +188,9 @@ func (gm *GameManager) createAccount(msg GameMessage) {
 func (gm *GameManager) loginUser(msg GameMessage) {
 	tmsg := msg.net.(*messages.Login)
 	lr := messages.LoginResp{
-		Success: 0,
-		Name:    tmsg.Name,
+		Success:   0,
+		Name:      tmsg.Name,
+		Character: &messages.Character{},
 	}
 	if acct, ok := gm.AcctByName[tmsg.Name]; ok {
 		if acct.Password == tmsg.Password {

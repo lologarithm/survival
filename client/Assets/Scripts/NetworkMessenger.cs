@@ -121,10 +121,11 @@ public class NetworkMessenger : MonoBehaviour
 
     public void MovePlayer(Vector2 vect) {
         float radians = Vector2.Angle(new Vector2(0, 1), vect);
-        ushort deg = radians * 180 / Math.PI;
-        MovePlayer mp = new MovePlayer();
-        mp.EntityID = this.characters[0].ID;
-        mp.Direction = deg;
+        ushort deg = (ushort)(radians * 180 / Math.PI);
+        MovePlayer outmsg = new MovePlayer();
+        outmsg.EntityID = this.characters[0].ID;
+        outmsg.Direction = deg;
+        this.sendNetPacket(MsgType.MovePlayer, outmsg);
     }
 
 	private void ReceiveCallback(IAsyncResult result)
@@ -251,9 +252,10 @@ public class NetworkMessenger : MonoBehaviour
 				characters.Add(lr.Character);
 				accounts.Add(lr.AccountID);
 				break;
-			case MsgType.CreateAcctResp:
-				CreateAcctResp car = ((CreateAcctResp)parsedMsg);
-				accounts.Add(car.AccountID);
+            case MsgType.CreateAcctResp:
+                CreateAcctResp car = ((CreateAcctResp)parsedMsg);
+                accounts.Add(car.AccountID);
+                characters.Add(car.Character);
 				break;
 			case MsgType.ListGamesResp:
 				ListGamesResp resp = ((ListGamesResp)parsedMsg);

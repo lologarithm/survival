@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"time"
@@ -69,6 +70,7 @@ func (g *Game) Run() {
 				switch msg.mtype {
 				case messages.MovePlayerMsgType:
 					tmsg := msg.net.(*messages.MovePlayer)
+					log.Printf("Moving character: %v", tmsg)
 					// TODO: go back in time and apply at tick!
 					for _, ent := range g.World.Entities {
 						if ent.ID == tmsg.EntityID {

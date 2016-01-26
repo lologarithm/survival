@@ -8,12 +8,12 @@ import (
 // TODO: Add an 'alive' property so that a 'close' call stops the listeners.
 
 type BytePipe struct {
-	buf  []byte
-	r    int32
-	w    int32
-	rc   *sync.Cond
-	wc   *sync.Cond
-	size int32
+	buf  []byte     // Internal buffer
+	size int32      // capacity of the buffer
+	r    int32      // Read index
+	rc   *sync.Cond // ReadCondition -- used when reader needs to
+	w    int32      // Write index
+	wc   *sync.Cond // WriteCondition -- used when writer has no more room
 }
 
 func NewBytePipe(size int32) *BytePipe {
@@ -57,9 +57,7 @@ func (bp *BytePipe) Write(b []byte) {
 	if (w == bp.size && r == 0) || w == r-1 {
 		// no space eft until reader reads something
 		bp.wc.L.Lock()
-		r = atomic.LoadInt32(&bp.r)
-		w = atomic.LoadInt32(&bp.w)
-		if (w == bp.size && r == 0) || w == r-1 {
+		if r == atomic.LoadInt32(&bp.r) {
 			bp.wc.Wait()
 		}
 		bp.wc.L.Unlock()
@@ -117,9 +115,7 @@ func (bp *BytePipe) Read(b []byte) int {
 	if r == w {
 		// We dont have anything to read, wait for now
 		bp.rc.L.Lock()
-		r = atomic.LoadInt32(&bp.r)
-		w = atomic.LoadInt32(&bp.w)
-		if r == w {
+		if w == atomic.LoadInt32(&bp.w) {
 			bp.rc.Wait()
 		}
 		bp.rc.L.Unlock()
