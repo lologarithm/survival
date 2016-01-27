@@ -70,6 +70,8 @@ func (gm *GameManager) Run() {
 // ProcessNetMsg is the method by which the game manager can deal with incoming messages from the network.
 func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 	switch msg.mtype {
+	case messages.DisconnectedMsgType:
+		gm.handleDisconnect(msg)
 	case messages.ConnectedMsgType:
 		gm.handleConnection(msg)
 	case messages.CreateAcctMsgType:
@@ -133,8 +135,7 @@ func (gm *GameManager) createGame(msg GameMessage) {
 
 func (gm *GameManager) handleConnection(msg GameMessage) {
 	// First make sure this is a new connection.
-	isNew := gm.Users[msg.client.ID] == nil
-	if isNew {
+	if gm.Users[msg.client.ID] == nil {
 		gm.Users[msg.client.ID] = &User{
 			Client: msg.client,
 		}
@@ -142,10 +143,10 @@ func (gm *GameManager) handleConnection(msg GameMessage) {
 }
 
 func (gm *GameManager) handleDisconnect(msg GameMessage) {
-	isNew := gm.Users[msg.client.ID] == nil
-	if !isNew {
-		gm.Users[msg.client.ID] = nil
-	}
+	// TODO: message active game that player disconnected.
+
+	// Lastly, clear out the user.
+	gm.Users[msg.client.ID] = nil
 }
 
 func (gm *GameManager) createAccount(msg GameMessage) {

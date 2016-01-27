@@ -94,6 +94,8 @@ func (g *Game) Run() {
 					}
 					g.World.Space.AddEntity(player.Body, false)
 					g.Clients[timsg.Entity.ID] = timsg.Client
+				case RemovePlayer:
+					// TODO: remove player from game after timeout?
 				}
 			case <-g.Exit:
 				fmt.Println("EXITING Game Manager")
@@ -247,6 +249,7 @@ func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan G
 			Entities: []*Entity{},
 			Chunks:   map[uint32]map[uint32]bool{}, // list of chunks that have been already created.
 		},
+		Exit: make(chan int, 1),
 	}
 	return g
 }
@@ -295,6 +298,11 @@ type InternalMessage interface {
 
 type ConnectedGame struct {
 	ToGame chan<- GameMessage
+}
+
+type RemovePlayer struct {
+	Client *Client
+	Entity *Entity
 }
 
 type AddPlayer struct {

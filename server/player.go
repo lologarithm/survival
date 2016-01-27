@@ -2,8 +2,9 @@ package server
 
 // User maps a connection to a list of accounts
 type User struct {
-	Accounts []*Account
-	Client   *Client
+	Accounts []*Account // List of authenticated accounts
+	Client   *Client    // Client connection
+	GameID   uint32     // Currently connected game ID
 }
 
 // Account is mostly a container for character and has a password to use them.

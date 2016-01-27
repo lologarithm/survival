@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"log"
 	"net"
+	"sync/atomic"
+	"time"
 
 	"github.com/lologarithm/survival/server/messages"
 )
@@ -15,6 +17,7 @@ type Client struct {
 	buffer  []byte
 	wIdx    int
 	address *net.UDPAddr
+	lastMsg int64
 
 	// These channels are written to by another process
 	FromNetwork     *BytePipe            // Bytes from client to server
@@ -32,14 +35,14 @@ type Client struct {
 // ProcessBytes accepts raw bytes from a socket and turns them into NetMessage objects and then
 // later into GameMessages. These are passed into the GameManager. This function also
 // accepts outgoing messages from the GameManager to the client.
-func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient chan Client) {
+func (client *Client) ProcessBytes(disconClient chan Client) {
 	client.toGameManager <- GameMessage{
 		client: client,
 		net:    &messages.Connected{},
 		mtype:  messages.ConnectedMsgType,
 	}
 	client.Alive = true
-
+	client.lastMsg = time.Now().UTC().Unix()
 	// Used to cache parts of a message.
 	// TODO: When should this be cleaned out?
 	partialMessages := map[uint32][]*messages.Multipart{}
@@ -47,11 +50,30 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 	var toGame chan<- GameMessage = nil // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
 
 	go func() {
-		msg := <-client.FromGameManager
-		tmsg := msg.(*ConnectedGame)
-		log.Printf("got connected, hooked up toGame channel!")
-		toGame = tmsg.ToGame
+		for {
+			select {
+			case msg := <-client.FromGameManager:
+				switch tmsg := msg.(type) {
+				case ConnectedGame:
+					log.Printf("got connected, hooked up toGame channel!")
+					toGame = tmsg.ToGame
+				}
+			case <-time.After(time.Second * 10):
+				if !client.Alive {
+					return
+				}
+				// If after 60 seconds we haven't gotten any messages, shut er down!
+				lastMsg := time.Unix(atomic.LoadInt64(&client.lastMsg), 0)
+				if time.Now().UTC().Sub(lastMsg).Seconds() >= 60 {
+					client.FromNetwork.Close()
+				}
+
+				return
+			}
+		}
+
 	}()
+
 	for client.Alive {
 		packet, ok := messages.NextPacket(client.buffer[:client.wIdx])
 
@@ -90,6 +112,11 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 		} else if !ok || packet.Len() > client.wIdx {
 			// This means we need more data still.
 			n := client.FromNetwork.Read(client.buffer[client.wIdx:])
+			if n == 0 {
+				client.Alive = false
+				break // Break out of alive!
+			}
+			atomic.StoreInt64(&client.lastMsg, time.Now().UTC().Unix())
 			client.wIdx += n
 			continue
 		}
@@ -116,4 +143,6 @@ func (client *Client) ProcessBytes(toClient chan OutgoingMessage, disconClient c
 		net:    &messages.Disconnected{},
 		mtype:  messages.ConnectedMsgType,
 	}
+	disconClient <- *client
+	close(client.FromGameManager)
 }

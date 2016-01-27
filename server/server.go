@@ -50,13 +50,16 @@ func (s *Server) handleMessage() {
 			toGameManager:   s.toGameManager,
 			ID:              s.clientID,
 		}
-		go s.connections[addrkey].ProcessBytes(s.outToNetwork, s.disconnectPlayer)
+		go s.connections[addrkey].ProcessBytes(s.disconnectPlayer)
 	}
-	s.connections[addrkey].FromNetwork.Write(s.inputBuffer[0:n])
+	if s.connections[addrkey].FromNetwork.Write(s.inputBuffer[0:n]) == 0 {
+		s.DisconnectConn(addrkey)
+	}
 }
 
 func (s *Server) DisconnectConn(addrkey string) {
-	// close(s.connections[addrkey].FromNetwork)
+	log.Printf("Disconnecting client: %d.", s.connections[addrkey].ID)
+	s.connections[addrkey].FromNetwork.Close()
 	delete(s.connections, addrkey)
 }
 

@@ -33,8 +33,50 @@ func TestBytePipe(t *testing.T) {
 	log.Printf("Final read: %d", n)
 }
 
+func TestBytePipeLargeMessage(t *testing.T) {
+	numBytes := 50
+	var pipeCap uint32 = 10
+	buffer := 20
+
+	pipe := NewBytePipe(pipeCap)
+	go func() {
+		pipe.Write(make([]byte, numBytes))
+		log.Printf("Wrote %d bytes to %d size pipe", numBytes, pipeCap)
+	}()
+
+	buf := make([]byte, buffer)
+	total := 0
+	for total < numBytes {
+		total += pipe.Read(buf)
+	}
+	log.Printf("Read %d bytes using a %d buffer", total, buffer)
+}
+
+func BenchmarkChannelPipe(b *testing.B) {
+	pipe := make(chan []byte, 100)
+	totalBytes := b.N
+	t := time.Now()
+	total := 0
+	n := (totalBytes * 128) / 1024
+
+	b.ResetTimer()
+	go func() {
+		inbuf := make([]byte, 128)
+		for i := 0; i < totalBytes; i++ {
+			pipe <- inbuf
+		}
+	}()
+
+	for i := 0; i < n; i++ {
+		msg := <-pipe
+		total += len(msg)
+	}
+	b.StopTimer()
+	fmt.Printf("Rate: %.0f bytes/sec\n", float64(total)/time.Now().Sub(t).Seconds())
+}
+
 func BenchmarkBytePipe(b *testing.B) {
-	pipe := NewBytePipe(65536)
+	pipe := NewBytePipe(12800)
 	totalBytes := b.N
 	t := time.Now()
 	total := 0
