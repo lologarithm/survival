@@ -10,12 +10,13 @@ public class GameCharManager : MonoBehaviour {
     public InputField charname;
     public InputField gamename;
 
-    public GameObject charlistcontent;
+    public GameObject gamelistcontent;
     public GameObject toggleprefab;
 
     public void handleCreateGame()
     {
         this.msger.CreateGame(gamename.text);
+        UnityEngine.SceneManagement.SceneManager.LoadScene("game_scene");
     }
 
 	public void handleStartGame()
@@ -28,21 +29,21 @@ public class GameCharManager : MonoBehaviour {
         if (this.msger != null)
         {
             int ord = 0;
-            foreach (Character c in this.msger.characters)
+            foreach (GameInstance gi in this.msger.games)
             {
-                GameObject exitingtog = GameObject.Find("chartoggle_" + c.Name);
+                GameObject exitingtog = GameObject.Find("gtoggle_" + gi.Name);
                 if (exitingtog != null)
                 {
                     ord++;
                     continue;
                 }
                 GameObject t = Instantiate(toggleprefab);
-                t.name = "chartoggle_" + c.Name;
+                t.name = "gtoggle_" + gi.Name;
                 ((RectTransform)t.transform).position = new Vector3(0, 30 * ord, 0);
-                GameObject l = GameObject.Find("chartoggle_" + c.Name + "/Label");
+                GameObject l = GameObject.Find("gtoggle_" + gi.Name + "/Label");
                 Text txt = l.GetComponent<Text>();
-                txt.text = c.Name;
-                t.transform.SetParent(this.charlistcontent.transform, false);
+                txt.text = gi.Name;
+                t.transform.SetParent(this.gamelistcontent.transform, false);
                 ord++;
             }
         }
