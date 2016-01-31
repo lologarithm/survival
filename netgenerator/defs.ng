@@ -69,6 +69,11 @@ class GameConnected {
  Entities []*Entity
 }
 
+class GameMasterFrame {
+ ID uint32
+ Entities []*Entity
+}
+
 class Entity {
  ID uint32
  EType uint16
@@ -101,4 +106,5 @@ class AbilityResult {
 }
 
 class EndGame {
+ GameID uint32
 }

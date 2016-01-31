@@ -42,3 +42,8 @@ func (b BoundingBox) Contains(o BoundingBox) bool {
 	return b.MinX <= o.MinX && b.MinY <= o.MinY &&
 		b.MaxX >= o.MaxX && b.MaxY >= o.MaxY
 }
+
+// BoxID returns 0 for bounding box because the box itself doesnt have an ID
+func (b BoundingBox) BoxID() uint32 {
+	return 0
+}

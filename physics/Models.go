@@ -51,6 +51,10 @@ type RigidBody struct {
 	Width  int32
 }
 
+func (rb RigidBody) BoxID() uint32 {
+	return rb.ID
+}
+
 func (rb RigidBody) BoundingBox() quadtree.BoundingBox {
 	hh := rb.Height / 2
 	hw := rb.Width / 2
@@ -87,6 +91,7 @@ func NewRigidBody(id uint32, h int32, w int32, pos Vect2, vel Vect2, angle float
 
 // PhysicsEntityUpdate message linked to an Entity.
 type PhysicsEntityUpdate struct {
-	UpdateType byte      // 2 == add, 3 == remove, 4 == physics update
-	Body       RigidBody // Passed by value through channels
+	UpdateType byte // 2 == add, 3 == remove, 4 == physics update
+	Body       *RigidBody
+	Other      *RigidBody
 }

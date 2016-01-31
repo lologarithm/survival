@@ -31,6 +31,7 @@ const (
 	CreateGameRespMsgType
 	JoinGameMsgType
 	GameConnectedMsgType
+	GameMasterFrameMsgType
 	EntityMsgType
 	MovePlayerMsgType
 	UseAbilityMsgType
@@ -70,6 +71,8 @@ func ParseNetMessage(packet Packet, content []byte) Net {
 		msg = &JoinGame{}
 	case GameConnectedMsgType:
 		msg = &GameConnected{}
+	case GameMasterFrameMsgType:
+		msg = &GameMasterFrame{}
 	case EntityMsgType:
 		msg = &Entity{}
 	case MovePlayerMsgType:
@@ -500,6 +503,42 @@ func (m *GameConnected) Len() int {
 	return mylen
 }
 
+type GameMasterFrame struct {
+	ID uint32
+	Entities []*Entity
+}
+
+func (m *GameMasterFrame) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, m.ID)
+	binary.Write(buffer, binary.LittleEndian, int32(len(m.Entities)))
+	for _, v2 := range m.Entities {
+		v2.Serialize(buffer)
+	}
+}
+
+func (m *GameMasterFrame) Deserialize(buffer *bytes.Buffer) {
+	binary.Read(buffer, binary.LittleEndian, &m.ID)
+	var l1_1 int32
+	binary.Read(buffer, binary.LittleEndian, &l1_1)
+	m.Entities = make([]*Entity, l1_1)
+	for i := 0; i < int(l1_1); i++ {
+		m.Entities[i] = new(Entity)
+		m.Entities[i].Deserialize(buffer)
+	}
+}
+
+func (m *GameMasterFrame) Len() int {
+	mylen := 0
+	mylen += 4
+	mylen += 4
+	for _, v2 := range m.Entities {
+	_ = v2
+		mylen += v2.Len()
+	}
+
+	return mylen
+}
+
 type Entity struct {
 	ID uint32
 	EType uint16
@@ -634,16 +673,20 @@ func (m *AbilityResult) Len() int {
 }
 
 type EndGame struct {
+	GameID uint32
 }
 
 func (m *EndGame) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, m.GameID)
 }
 
 func (m *EndGame) Deserialize(buffer *bytes.Buffer) {
+	binary.Read(buffer, binary.LittleEndian, &m.GameID)
 }
 
 func (m *EndGame) Len() int {
 	mylen := 0
+	mylen += 4
 	return mylen
 }
 

@@ -8,8 +8,8 @@ public class PlayerController : MonoBehaviour {
 
     // Use this for initialization
     void Start () {
-        GameObject manager = GameObject.Find("NetworkMessenger");
-        this.msger = manager.GetComponent<NetworkMessenger>();
+        GameObject managerobj = GameObject.Find("NetworkMessenger");
+        this.msger = managerobj.GetComponent<NetworkMessenger>();
 	}
 	
 	// Update is called once per frame

@@ -121,7 +121,13 @@ public class NetworkMessenger : MonoBehaviour
 
     public void MovePlayer(Vector2 vect) {
         float radians = Vector2.Angle(new Vector2(0, 1), vect);
-        ushort deg = (ushort)(radians * 180 / Math.PI);
+        double angle = (radians * 180 / Math.PI) % 360;
+        if (angle < 0)
+        {
+            angle = 360 + angle;
+        }
+        ushort deg = (ushort)angle;
+        Debug.Log("Moving in direction: " + deg.ToString());
         MovePlayer outmsg = new MovePlayer();
         outmsg.EntityID = this.characters[0].ID;
         outmsg.Direction = deg;
@@ -170,7 +176,6 @@ public class NetworkMessenger : MonoBehaviour
 		NetPacket nMsg = NetPacket.fromBytes(input_bytes);
 		if (nMsg != null)
 		{
-			Debug.Log("Got a new netmsg: " + nMsg.message_type + " length: " + nMsg.content_length);
 			// Check for full content available. If so, time to add this to the processing queue.
 			if (nMsg.full_content != null)
 			{
@@ -204,7 +209,6 @@ public class NetworkMessenger : MonoBehaviour
 
 		// Read from message queue and process!
 		// Send updates to each object.
-		Debug.Log("Got message: " + parsedMsg);
 		switch ((MsgType)np.message_type)
 		{
 			case MsgType.Multipart:
@@ -279,6 +283,18 @@ public class NetworkMessenger : MonoBehaviour
 				games.Add(gi);
 				Debug.Log("Added game: " + gi.Name);
 				break;
+            case MsgType.GameMasterFrame:
+                GameMasterFrame gmf = ((GameMasterFrame)parsedMsg);
+                Debug.Log("masterframe for gameID:" + gmf.ID.ToString());
+                for (int i = 0; i < games.Count; i++)
+                {
+                    if (games[i].ID == gmf.ID)
+                    {
+                        Debug.Log("Updating game entities");
+                        games[i].entities = gmf.Entities;
+                    }
+                }
+                break;
 		}
 	}
 

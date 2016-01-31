@@ -56,7 +56,6 @@ func TestBasicServer(t *testing.T) {
 
 func BenchmarkServerParsing(b *testing.B) {
 	gamechan := make(chan GameMessage, 100)
-	outchan := make(chan OutgoingMessage, 100)
 	donechan := make(chan Client, 1)
 	fakeClient := &Client{
 		address:         &net.UDPAddr{},
@@ -65,7 +64,7 @@ func BenchmarkServerParsing(b *testing.B) {
 		toGameManager:   gamechan,
 		ID:              1,
 	}
-	go fakeClient.ProcessBytes(outchan, donechan)
+	go fakeClient.ProcessBytes(donechan)
 
 	packet := messages.NewPacket(messages.LoginMsgType, &messages.Login{
 		Name:     "testuser",

@@ -34,11 +34,12 @@ func NewSimulatedSpace() *SimulatedSpace {
 }
 
 type SimulatedSpace struct {
-	tree       quadtree.QuadTree
-	Entities   []*RigidBody // Anything that can collide in the playspace
-	entidx     int
-	fixidx     int
-	Fixed      []*RigidBody // Anything that can collide but is fixed in place.
+	tree     quadtree.QuadTree
+	Entities []*RigidBody // Anything that can collide in the playspace
+	Fixed    []*RigidBody // Anything that can collide but is fixed in place.
+	entidx   int
+	fixidx   int
+
 	lastUpdate time.Time
 	TickID     uint32
 }
@@ -51,8 +52,26 @@ func (ss *SimulatedSpace) AddEntity(body *RigidBody, fixed bool) {
 	}
 	ss.Entities[ss.entidx] = body
 	ss.entidx++
-
 	ss.tree.Add(body)
+}
+
+func (ss *SimulatedSpace) RemoveEntity(body *RigidBody, fixed bool) {
+	if fixed {
+		for cidx, f := range ss.Fixed {
+			if f.ID == body.ID {
+				ss.Fixed[cidx] = nil
+				break
+			}
+		}
+	} else {
+		for cidx, f := range ss.Entities {
+			if f.ID == body.ID {
+				ss.Entities[cidx] = nil
+				break
+			}
+		}
+	}
+	ss.tree.Remove(body)
 }
 
 func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
@@ -69,7 +88,6 @@ func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
 			continue
 		}
 		changed = false
-
 		rigid.Velocity = rigid.Velocity.Add(MultVect2(rigid.Force, rigid.InvMass/SimUpdatesPerSecond))
 		rigid.AngularVelocity += (rigid.Torque * float64(rigid.InvInertia)) / SimUpdatesPerSecond
 
@@ -92,16 +110,19 @@ func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
 			changed = true
 		}
 
-		if changed && sendUpdate {
-			changeList[cidx].UpdateType = UpdatePosition
-			changeList[cidx].Body = *rigid
-			cidx++
-			if cidx == len(changeList) {
-				newlist := make([]PhysicsEntityUpdate, len(changeList)*2)
-				copy(newlist, changeList)
-				changeList = newlist
-			}
+		if !changed {
+			continue
 		}
+		// if changed && sendUpdate {
+		// 	changeList[cidx].UpdateType = UpdatePosition
+		// 	changeList[cidx].Body = *rigid
+		// 	cidx++
+		// 	if cidx == len(changeList) {
+		// 		newlist := make([]PhysicsEntityUpdate, len(changeList)*2)
+		// 		copy(newlist, changeList)
+		// 		changeList = newlist
+		// 	}
+		// }
 
 		collisions := ss.tree.Query(rigid.BoundingBox())
 
@@ -110,8 +131,11 @@ func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
 			if other == nil || other.ID == rigid.ID {
 				continue
 			}
+
 			changeList[cidx].UpdateType = UpdateCollision
-			changeList[cidx].Body = *rigid
+			changeList[cidx].Body = rigid
+			changeList[cidx].Other = other
+
 			cidx++
 			if cidx == len(changeList) {
 				newlist := make([]PhysicsEntityUpdate, len(changeList)*2)
@@ -120,7 +144,6 @@ func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
 			}
 		}
 	}
-	// Check for collisions?
 
 	return changeList[:cidx]
 }

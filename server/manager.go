@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"math"
 
@@ -30,7 +31,6 @@ type GameManager struct {
 
 	// Temp junk to make this crap work
 	Accounts   []*Account
-	Characters []*Character
 	CharID     uint32
 	AccountID  uint32
 	AcctByName map[string]*Account
@@ -45,7 +45,6 @@ func NewGameManager(exit chan int, fromNetwork chan GameMessage, toNetwork chan 
 		ToNetwork:   toNetwork,
 		Exit:        exit,
 		Accounts:    make([]*Account, math.MaxUint16),
-		Characters:  make([]*Character, math.MaxUint16),
 		AcctByName:  map[string]*Account{},
 	}
 	return gm
@@ -82,8 +81,6 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 		// TODO: make this work
 	case messages.CreateGameMsgType:
 		gm.createGame(msg)
-		// jgm := &messages.JoinGame{}
-		// TODO: the user that created it joins it!
 	case messages.ListGamesMsgType:
 		gameList := &messages.ListGamesResp{
 			IDs:   []uint32{},
@@ -95,6 +92,15 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 		}
 		resp := NewOutgoingMsg(msg.client, messages.ListGamesRespMsgType, gameList)
 		gm.ToNetwork <- resp
+	case messages.EndGameMsgType:
+		tmsg := msg.net.(*messages.EndGame)
+		gameid := tmsg.GameID
+		if msg.client != nil {
+			gameid = gm.Users[msg.client.ID].GameID
+		}
+		fmt.Printf("Ended game: %d", gameid)
+		gm.Games[gameid] = nil
+
 	default:
 		// These messages probably go to a game?
 		// TODO: Probably have a direct conn to a game from the *Client
@@ -103,20 +109,23 @@ func (gm *GameManager) ProcessNetMsg(msg GameMessage) {
 
 func (gm *GameManager) createGame(msg GameMessage) {
 	cgm := msg.net.(*messages.CreateGame)
+	gm.NextGameID++
 
 	netchan := make(chan GameMessage, 100)
-	g := NewGame(cgm.Name, gm.FromGames, netchan)
+	g := NewGame(cgm.Name, gm.FromGames, netchan, gm.ToNetwork)
+	g.ID = gm.NextGameID
 	g.SpawnChunk(0, 0)
 	go g.Run()
+
 	for _, a := range gm.Users[msg.client.ID].Accounts {
-		g.FromGameManager <- &AddPlayer{
+		g.FromGameManager <- AddPlayer{
 			Entity: &Entity{
-				ID: a.Character.ID,
+				Name: a.Character.Name,
 			},
 			Client: msg.client,
 		}
 	}
-	gm.NextGameID++
+
 	gm.Games[gm.NextGameID] = g
 	cgr := &messages.CreateGameResp{
 		Name: cgm.Name,
@@ -126,7 +135,8 @@ func (gm *GameManager) createGame(msg GameMessage) {
 			Entities: g.World.EntitiesMsg(),
 		},
 	}
-	msg.client.FromGameManager <- &ConnectedGame{
+	gm.Users[msg.client.ID].GameID = msg.client.ID
+	msg.client.FromGameManager <- ConnectedGame{
 		ToGame: netchan,
 	}
 	resp := NewOutgoingMsg(msg.client, messages.CreateGameRespMsgType, cgr)
@@ -137,15 +147,19 @@ func (gm *GameManager) handleConnection(msg GameMessage) {
 	// First make sure this is a new connection.
 	if gm.Users[msg.client.ID] == nil {
 		gm.Users[msg.client.ID] = &User{
-			Client: msg.client,
+			Client:   msg.client,
+			Accounts: []*Account{},
 		}
 	}
 }
 
 func (gm *GameManager) handleDisconnect(msg GameMessage) {
-	// TODO: message active game that player disconnected.
-
-	// Lastly, clear out the user.
+	// message active game that player disconnected.
+	gameid := gm.Users[msg.client.ID].GameID
+	if gm.Games[gameid] != nil {
+		gm.Games[gameid].FromGameManager <- RemovePlayer{Client: msg.client}
+	}
+	// Then clear out the user.
 	gm.Users[msg.client.ID] = nil
 }
 
@@ -164,7 +178,6 @@ func (gm *GameManager) createAccount(msg GameMessage) {
 			Name:     netmsg.Name,
 			Password: netmsg.Password,
 			Character: &Character{
-				ID:    gm.CharID,
 				Name:  netmsg.CharName,
 				Items: []*Item{},
 			},
@@ -176,7 +189,6 @@ func (gm *GameManager) createAccount(msg GameMessage) {
 			ID:   gm.Accounts[gm.AccountID].Character.ID,
 		}
 
-		gm.Characters[gm.CharID] = gm.Accounts[gm.AccountID].Character
 		gm.AcctByName[netmsg.Name] = gm.Accounts[gm.AccountID]
 		gm.Users[msg.client.ID].Accounts = append(gm.Users[msg.client.ID].Accounts, gm.Accounts[gm.AccountID])
 	}

@@ -23,6 +23,7 @@ const (
 // BoundingBoxer interface allows arbitrary objects to be inserted into the quadtree since it only requires a bounding box.
 type BoundingBoxer interface {
 	BoundingBox() BoundingBox
+	BoxID() uint32
 }
 
 // QuadTree is the core tree structure.
@@ -49,6 +50,11 @@ type qtile struct {
 // Add a value to the quad-tree by trickle down from the root node.
 func (qb *QuadTree) Add(v BoundingBoxer) {
 	qb.root.add(v)
+}
+
+// Add a value to the quad-tree by trickle down from the root node.
+func (qb *QuadTree) Remove(v BoundingBoxer) bool {
+	return qb.root.remove(v.BoundingBox(), v.BoxID())
 }
 
 // Query will return all objects which intersect the query box
@@ -115,6 +121,33 @@ func (tile *qtile) split() {
 	for _, v := range contentsBak {
 		tile.add(v)
 	}
+}
+
+func (tile *qtile) remove(qbox BoundingBox, id uint32) bool {
+	// end recursion if this tile does not intersect the query range
+	if !tile.Intersects(qbox) {
+		return false
+	}
+
+	// return candidates at this tile
+	for vidx, v := range tile.contents {
+		if qbox.Intersects(v.BoundingBox()) && id == v.BoxID() {
+			// REMOVE IT
+			tile.contents = append(tile.contents[:vidx], tile.contents[vidx+1:]...)
+			return true
+		}
+	}
+
+	// recurse into childs (if any)
+	if tile.childs[topRightTile] != nil {
+		for _, child := range tile.childs {
+			if child.remove(qbox, id) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (tile *qtile) query(qbox BoundingBox, ret []BoundingBoxer) []BoundingBoxer {

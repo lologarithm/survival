@@ -6,7 +6,7 @@ import (
 )
 
 func TestGameSpawning(t *testing.T) {
-	g := NewGame("A", nil, nil)
+	g := NewGame("A", nil, nil, nil)
 	g.Seed = 10
 
 	g.SpawnChunk(0, 0)

@@ -60,6 +60,7 @@ func (client *Client) ProcessBytes(disconClient chan Client) {
 				}
 			case <-time.After(time.Second * 10):
 				if !client.Alive {
+					log.Printf("Client %d: no longer alive.", client.ID)
 					return
 				}
 				// If after 60 seconds we haven't gotten any messages, shut er down!
@@ -113,6 +114,7 @@ func (client *Client) ProcessBytes(disconClient chan Client) {
 			// This means we need more data still.
 			n := client.FromNetwork.Read(client.buffer[client.wIdx:])
 			if n == 0 {
+				log.Printf("got 0 byte message from client, shutten er down!")
 				client.Alive = false
 				break // Break out of alive!
 			}
@@ -127,7 +129,7 @@ func (client *Client) ProcessBytes(disconClient chan Client) {
 				client.toGameManager <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
 			default:
 				if toGame == nil {
-					log.Printf("Client sent message type %d(%v) before in a game!", packet.Frame.MsgType, packet.NetMsg)
+					log.Printf("Client sent message (%d:%v) before in a game!", packet.Frame.MsgType, packet.NetMsg)
 					break
 				}
 				toGame <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
@@ -138,10 +140,11 @@ func (client *Client) ProcessBytes(disconClient chan Client) {
 			client.wIdx -= packet.Len()
 		}
 	}
+	log.Printf("  shutdown client msg parser: %d\n", client.ID)
 	client.toGameManager <- GameMessage{
 		client: client,
 		net:    &messages.Disconnected{},
-		mtype:  messages.ConnectedMsgType,
+		mtype:  messages.DisconnectedMsgType,
 	}
 	disconClient <- *client
 	close(client.FromGameManager)

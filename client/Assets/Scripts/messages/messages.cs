@@ -7,7 +7,7 @@ interface INet {
 	void Deserialize(BinaryReader buffer);
 }
 
-enum MsgType : ushort {Unknown=0,Ack=1,Multipart=2,Connected=3,Disconnected=4,CreateAcct=5,CreateAcctResp=6,Login=7,LoginResp=8,Character=9,ListGames=10,ListGamesResp=11,CreateGame=12,CreateGameResp=13,JoinGame=14,GameConnected=15,Entity=16,MovePlayer=17,UseAbility=18,AbilityResult=19,EndGame=20}
+enum MsgType : ushort {Unknown=0,Ack=1,Multipart=2,Connected=3,Disconnected=4,CreateAcct=5,CreateAcctResp=6,Login=7,LoginResp=8,Character=9,ListGames=10,ListGamesResp=11,CreateGame=12,CreateGameResp=13,JoinGame=14,GameConnected=15,GameMasterFrame=16,Entity=17,MovePlayer=18,UseAbility=19,AbilityResult=20,EndGame=21}
 
 static class Messages {
 // ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.
@@ -57,6 +57,9 @@ public static INet Parse(ushort msgType, byte[] content) {
 			break;
 		case MsgType.GameConnected:
 			msg = new GameConnected();
+			break;
+		case MsgType.GameMasterFrame:
+			msg = new GameMasterFrame();
 			break;
 		case MsgType.Entity:
 			msg = new Entity();
@@ -355,6 +358,29 @@ public class GameConnected : INet {
 	}
 }
 
+public class GameMasterFrame : INet {
+	public uint ID;
+	public Entity[] Entities;
+
+	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.ID);
+		buffer.Write((Int32)this.Entities.Length);
+		for (int v2 = 0; v2 < this.Entities.Length; v2++) {
+			this.Entities[v2].Serialize(buffer);
+		}
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+		this.ID = buffer.ReadUInt32();
+		int l1_1 = buffer.ReadInt32();
+		this.Entities = new Entity[l1_1];
+		for (int v2 = 0; v2 < l1_1; v2++) {
+			this.Entities[v2] = new Entity();
+			this.Entities[v2].Deserialize(buffer);
+		}
+	}
+}
+
 public class Entity : INet {
 	public uint ID;
 	public ushort EType;
@@ -450,11 +476,14 @@ public class AbilityResult : INet {
 }
 
 public class EndGame : INet {
+	public uint GameID;
 
 	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.GameID);
 	}
 
 	public void Deserialize(BinaryReader buffer) {
+		this.GameID = buffer.ReadUInt32();
 	}
 }
 

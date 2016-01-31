@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"math"
 	"math/rand"
 	"time"
@@ -15,19 +14,28 @@ import (
 
 const ChunkSize int32 = 10000
 
+const (
+	UnknownEType uint16 = iota
+	RockEType
+	BushEType
+	TreeEType
+	CreatureEType
+	ProjectileEType
+)
+
 // Game represents a single game
 type Game struct {
+	ID   uint32
 	Name string
 	Seed uint64 // Select a seed when starting the game!
 
 	// map character ID to client
-	Clients map[uint32]*Client
+	Clients map[uint32]*User
 
-	// Game can only write to this channel, not read.
-	IntoGameManager chan<- GameMessage
-	FromGameManager chan InternalMessage
-	// FromNetwork is read here and written elsewhere.
-	FromNetwork <-chan GameMessage // Messages from players.
+	IntoGameManager chan<- GameMessage     // Game can only write to this channel, not read.
+	FromGameManager chan InternalMessage   // Messages from the game Manager.
+	FromNetwork     <-chan GameMessage     // FromNetwork is read only here, messages from players.
+	ToNetwork       chan<- OutgoingMessage // Messages to players!
 
 	Exit   chan int
 	Status GameStatus
@@ -39,7 +47,7 @@ type Game struct {
 // GameWorld represents all the data in the world.
 // Physical entities and the physics simulation.
 type GameWorld struct {
-	Entities []*Entity
+	Entities map[uint32]*Entity
 	Chunks   map[uint32]map[uint32]bool // list of chunks that have been already created.
 	Space    *physics.SimulatedSpace
 }
@@ -66,50 +74,112 @@ func (g *Game) Run() {
 				waiting = false
 				break
 			case msg := <-g.FromNetwork:
-				fmt.Printf("GameManager: Received message: %T\n", msg)
 				switch msg.mtype {
 				case messages.MovePlayerMsgType:
-					tmsg := msg.net.(*messages.MovePlayer)
-					log.Printf("Moving character: %v", tmsg)
-					// TODO: go back in time and apply at tick!
-					for _, ent := range g.World.Entities {
-						if ent.ID == tmsg.EntityID {
-							ent.Body.Angle = float64(tmsg.Direction%365) * math.Pi / 180.0
-							// TODO: Replace hardcoded 50 with 'speed' setting of the character.
-							ent.Body.Velocity = physics.Vect2{X: int32(math.Cos(ent.Body.Angle) * 50), Y: int32(math.Sin(ent.Body.Angle)) * 50}
-							break
-						}
-					}
+					g.MoveEntity(msg.client, msg.net.(*messages.MovePlayer))
 				default:
-					fmt.Printf("GameManager.go:RunGame(): UNKNOWN MESSAGE TYPE: %T\n", msg)
+					fmt.Printf("game.go:Run(): UNKNOWN MESSAGE TYPE: %T\n", msg)
 				}
 			case imsg := <-g.FromGameManager:
 				switch timsg := imsg.(type) {
 				case AddPlayer:
+					newid := uint32(len(g.World.Entities))
 					player := &Entity{
-						ID:    timsg.Entity.ID,
-						EType: 3, // TODO: make constants
+						ID:    newid,
+						Name:  timsg.Entity.Name,
+						EType: CreatureEType,
 						Seed:  timsg.Entity.Seed,
-						Body:  physics.NewRigidBody(timsg.Entity.ID, 22, 46, physics.Vect2{X: 5000, Y: 5000}, physics.Vect2{}, 0, 100),
+						Body:  physics.NewRigidBody(newid, 22, 46, physics.Vect2{X: 5000, Y: 5000}, physics.Vect2{}, 0, 100),
 					}
 					g.World.Space.AddEntity(player.Body, false)
-					g.Clients[timsg.Entity.ID] = timsg.Client
+					g.World.Entities[newid] = player
+					g.Clients[timsg.Client.ID] = &User{
+						Client: timsg.Client,
+						Accounts: []*Account{
+							{
+								Character: &Character{
+									ID: newid,
+								},
+							},
+						},
+					}
 				case RemovePlayer:
+					id := g.Clients[timsg.Client.ID].Accounts[0].Character.ID
+					ent := g.World.Entities[id]
+					if ent == nil {
+						return
+					}
 					// TODO: remove player from game after timeout?
+					g.World.Space.RemoveEntity(ent.Body, false)
+					delete(g.Clients, timsg.Client.ID)
+					if len(g.Clients) == 0 {
+						fmt.Printf("All clients disconnected, closing game %d.", g.ID)
+						g.IntoGameManager <- GameMessage{
+							net:   &messages.EndGame{},
+							mtype: messages.EndGameMsgType,
+						}
+						return
+					}
 				}
 			case <-g.Exit:
-				fmt.Println("EXITING Game Manager")
+				fmt.Print("EXITING: Run in Game.go\n")
 				return
 			}
 		}
-		g.World.Space.Tick(true)
-		// TODO: send updates from the tick?
-		fmt.Printf("Sending client update!\n")
+		collisions := g.World.Space.Tick(true)
+		for _, col := range collisions {
+			var ent *Entity
+			for _, e := range g.World.Entities {
+				if e.ID == col.Body.ID {
+					ent = e
+					break
+				}
+			}
+			if ent.EType == ProjectileEType {
+				// TODO: remove the projectile
+				// TODO: resolve hit to target.
+			}
+		}
+		if g.World.Space.TickID%20 == 0 {
+			g.SendMasterFrame()
+		}
 	}
 }
 
-func (g *Game) MoveEntity() {
+func (g *Game) SendMasterFrame() {
+	mf := &messages.GameMasterFrame{
+		ID:       g.ID,
+		Entities: g.World.EntitiesMsg(),
+	}
 
+	frame := messages.Frame{
+		MsgType:       messages.GameMasterFrameMsgType,
+		Seq:           1,
+		ContentLength: uint16(mf.Len()),
+	}
+	msg := OutgoingMessage{
+		msg: messages.Packet{
+			Frame:  frame,
+			NetMsg: mf,
+		},
+	}
+
+	for _, c := range g.Clients {
+		msg.dest = c.Client
+		g.ToNetwork <- msg
+	}
+}
+
+func (g *Game) MoveEntity(c *Client, tmsg *messages.MovePlayer) {
+	// TODO: go back in time and apply at tick!
+	id := g.Clients[c.ID].Accounts[0].Character.ID
+	ent := g.World.Entities[id]
+	if ent == nil {
+		return
+	}
+	ent.Body.Angle = float64(tmsg.Direction%365) * math.Pi / 180.0
+	// TODO: Replace hardcoded 50 with 'speed' setting of the character.
+	ent.Body.Velocity = physics.Vect2{X: int32(math.Cos(ent.Body.Angle) * 50), Y: int32(math.Sin(ent.Body.Angle) * 50)}
 }
 
 // SpawnChunk creates all the entities for a chunk at the given x/y
@@ -159,7 +229,8 @@ func (g *Game) SpawnChunk(x, y uint32) {
 				Width:  10,
 			},
 			Seed:  oSeed,
-			EType: 0,
+			EType: RockEType,
+			ID:    uint32(len(g.World.Entities)),
 		}
 		// Check if existing rock overlaps this rock, if so, make old rock bigger!
 		intersected := false
@@ -174,7 +245,7 @@ func (g *Game) SpawnChunk(x, y uint32) {
 			}
 		}
 		if !intersected {
-			g.World.Entities = append(g.World.Entities, te)
+			g.World.Entities[te.ID] = te
 		}
 	}
 
@@ -204,7 +275,8 @@ func (g *Game) SpawnChunk(x, y uint32) {
 				Width:  100,
 			},
 			Seed:  oSeed,
-			EType: 2,
+			EType: TreeEType,
+			ID:    uint32(len(g.World.Entities)),
 		}
 
 		// Check if existing tree overlaps this tree, if so, make old tree bigger!
@@ -220,7 +292,7 @@ func (g *Game) SpawnChunk(x, y uint32) {
 			}
 		}
 		if !intersected {
-			g.World.Entities = append(g.World.Entities, te)
+			g.World.Entities[te.ID] = te
 		}
 	}
 
@@ -234,7 +306,7 @@ func (g *Game) SpawnChunk(x, y uint32) {
 }
 
 // NewGame constructs a new game and starts it.
-func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan GameMessage) *Game {
+func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan GameMessage, toNetwork chan<- OutgoingMessage) *Game {
 	seed := uint64(rand.Uint32())
 	seed = seed << 32
 	seed += uint64(rand.Uint32())
@@ -243,13 +315,15 @@ func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan G
 		IntoGameManager: toGameManager,
 		FromGameManager: make(chan InternalMessage, 100),
 		FromNetwork:     fromNetwork,
+		ToNetwork:       toNetwork,
 		Seed:            seed,
 		World: &GameWorld{
 			Space:    physics.NewSimulatedSpace(),
-			Entities: []*Entity{},
+			Entities: map[uint32]*Entity{},
 			Chunks:   map[uint32]map[uint32]bool{}, // list of chunks that have been already created.
 		},
-		Exit: make(chan int, 1),
+		Exit:    make(chan int, 1),
+		Clients: make(map[uint32]*User, 16),
 	}
 	return g
 }
@@ -257,6 +331,7 @@ func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan G
 // Entity represents a single object in the game.
 type Entity struct {
 	ID    uint32
+	Name  string
 	EType uint16
 	Seed  uint64
 	Body  *physics.RigidBody
@@ -302,7 +377,6 @@ type ConnectedGame struct {
 
 type RemovePlayer struct {
 	Client *Client
-	Entity *Entity
 }
 
 type AddPlayer struct {
