@@ -120,17 +120,10 @@ public class NetworkMessenger : MonoBehaviour
 	}
 
     public void MovePlayer(Vector2 vect) {
-        float radians = Vector2.Angle(new Vector2(0, 1), vect);
-        double angle = (radians * 180 / Math.PI) % 360;
-        if (angle < 0)
-        {
-            angle = 360 + angle;
-        }
-        ushort deg = (ushort)angle;
-        Debug.Log("Moving in direction: " + deg.ToString());
         MovePlayer outmsg = new MovePlayer();
         outmsg.EntityID = this.characters[0].ID;
-        outmsg.Direction = deg;
+        outmsg.X = vect.x;
+        outmsg.Y = vect.y;
         this.sendNetPacket(MsgType.MovePlayer, outmsg);
     }
 

@@ -41,7 +41,9 @@ type Game struct {
 	Status GameStatus
 
 	// Private
-	World *GameWorld
+	World          *GameWorld    // Current world state
+	prevWorlds     []*GameWorld  // Last X seconds of game states
+	commandHistory []interface{} // Last X seconds of commands
 }
 
 // GameWorld represents all the data in the world.
@@ -50,6 +52,12 @@ type GameWorld struct {
 	Entities map[uint32]*Entity
 	Chunks   map[uint32]map[uint32]bool // list of chunks that have been already created.
 	Space    *physics.SimulatedSpace
+}
+
+// Clone returns a deep copy of the game world at this time.
+func (gw *GameWorld) Clone() *GameWorld {
+	// TODO: make this work.
+	return &GameWorld{}
 }
 
 // EntitiesMsg converts all entities in the world to a network message.
@@ -66,7 +74,7 @@ func (gw *GameWorld) EntitiesMsg() []*messages.Entity {
 func (g *Game) Run() {
 	waiting := true
 	for {
-		timeout := time.Millisecond * 50
+		timeout := time.Millisecond * 33
 		waiting = true
 		for waiting {
 			select {
@@ -177,9 +185,13 @@ func (g *Game) MoveEntity(c *Client, tmsg *messages.MovePlayer) {
 	if ent == nil {
 		return
 	}
-	ent.Body.Angle = float64(tmsg.Direction%365) * math.Pi / 180.0
+	dirVect := physics.Vect2{
+		X: int32(tmsg.X),
+		Y: int32(tmsg.Y),
+	}
+	ent.Body.Angle = physics.Angle(dirVect, physics.Vect2{X: 0, Y: 1})
 	// TODO: Replace hardcoded 50 with 'speed' setting of the character.
-	ent.Body.Velocity = physics.Vect2{X: int32(math.Cos(ent.Body.Angle) * 50), Y: int32(math.Sin(ent.Body.Angle) * 50)}
+	ent.Body.Velocity = physics.Vect2{X: int32(math.Cos(ent.Body.Angle) * 50 * dirVect.Magnitude()), Y: int32(math.Sin(ent.Body.Angle) * 50 * dirVect.Magnitude())}
 }
 
 // SpawnChunk creates all the entities for a chunk at the given x/y

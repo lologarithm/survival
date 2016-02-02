@@ -22,12 +22,21 @@ func MultVect2(a Vect2, s int32) Vect2 {
 	return Vect2{a.X * s, a.Y * s}
 }
 
+func Angle(a Vect2, b Vect2) float64 {
+	alpha := float64(a.X*a.X+a.Y*b.Y) / (a.Magnitude() * b.Magnitude())
+	return math.Acos(alpha)
+}
+
 type Vect2 struct {
 	X, Y int32
 }
 
 func (v Vect2) Add(v2 Vect2) Vect2 {
 	return Vect2{v.X + v2.X, v.Y + v2.Y}
+}
+
+func (v Vect2) Magnitude() float64 {
+	return math.Sqrt(float64(v.X*v.X + v.Y*v.Y))
 }
 
 // RigidBody is an object in the physics simulation

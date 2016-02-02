@@ -5,6 +5,7 @@ using Assets;
 public class PlayerController : MonoBehaviour {
 
     private NetworkMessenger msger;
+    private bool isMoving;
 
     // Use this for initialization
     void Start () {
@@ -34,6 +35,11 @@ public class PlayerController : MonoBehaviour {
         if (moveVector.x != 0 || moveVector.y != 0) {
             moveVector = moveVector.normalized;
             Debug.Log(moveVector.ToString());
+            msger.MovePlayer(moveVector);
+        }
+
+        if (isMoving && (moveVector.x == 0 && moveVector.y == 0))
+        {
             msger.MovePlayer(moveVector);
         }
             

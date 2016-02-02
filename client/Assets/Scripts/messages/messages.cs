@@ -420,18 +420,21 @@ public class Entity : INet {
 public class MovePlayer : INet {
 	public uint EntityID;
 	public uint TickID;
-	public ushort Direction;
+	public byte X;
+	public byte Y;
 
 	public void Serialize(BinaryWriter buffer) {
 		buffer.Write(this.EntityID);
 		buffer.Write(this.TickID);
-		buffer.Write(this.Direction);
+		buffer.Write(this.X);
+		buffer.Write(this.Y);
 	}
 
 	public void Deserialize(BinaryReader buffer) {
 		this.EntityID = buffer.ReadUInt32();
 		this.TickID = buffer.ReadUInt32();
-		this.Direction = buffer.ReadUInt16();
+		this.X = buffer.ReadByte();
+		this.Y = buffer.ReadByte();
 	}
 }
 
