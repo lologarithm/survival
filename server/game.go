@@ -189,9 +189,9 @@ func (g *Game) MoveEntity(c *Client, tmsg *messages.MovePlayer) {
 		X: int32(tmsg.X),
 		Y: int32(tmsg.Y),
 	}
-	ent.Body.Angle = physics.Angle(dirVect, physics.Vect2{X: 0, Y: 1})
+	ent.Body.Angle = physics.AngleVect2(dirVect, physics.Vect2{X: 0, Y: 1})
 	// TODO: Replace hardcoded 50 with 'speed' setting of the character.
-	ent.Body.Velocity = physics.Normalize(dirVect, 50)
+	ent.Body.Velocity = physics.NormalizeVect2(dirVect, 50)
 }
 
 // SpawnChunk creates all the entities for a chunk at the given x/y

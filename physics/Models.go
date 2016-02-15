@@ -6,7 +6,7 @@ import (
 	"github.com/lologarithm/survival/physics/quadtree"
 )
 
-func CrossProduct(a Vect2, b Vect2) int32 {
+func CrossProductVect2(a Vect2, b Vect2) int32 {
 	return a.X*b.Y - a.Y*b.X
 }
 
@@ -22,7 +22,7 @@ func MultVect2(a Vect2, s int32) Vect2 {
 	return Vect2{a.X * s, a.Y * s}
 }
 
-func Angle(a Vect2, b Vect2) float64 {
+func AngleVect2(a Vect2, b Vect2) float64 {
 	alpha := float64(a.X*a.X+a.Y*b.Y) / (a.Magnitude() * b.Magnitude())
 	return math.Acos(alpha)
 }
@@ -33,7 +33,7 @@ func AddVect2(v, v2 Vect2) Vect2 {
 
 // Normalize will normalize a vector to a given magnitude.
 // If mag == 0 it will be normalized to magnitude max of 1.
-func Normalize(a Vect2, mag int32) Vect2 {
+func NormalizeVect2(a Vect2, mag int32) Vect2 {
 	oldmag := float64(a.Magnitude())
 
 	return Vect2{
