@@ -6,6 +6,7 @@ import (
 	"net"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/lologarithm/survival/server/messages"
 )
@@ -20,7 +21,8 @@ type Client struct {
 	lastMsg int64
 
 	// These channels are written to by another process
-	FromNetwork     *BytePipe            // Bytes from client to server
+	FromNetwork     *BytePipe // Bytes from client to server
+	ToNetwork       chan OutgoingMessage
 	FromGameManager chan InternalMessage //
 
 	// These channels can be written to in the client but not read from.
@@ -47,7 +49,7 @@ func (client *Client) ProcessBytes(disconClient chan Client) {
 	// TODO: When should this be cleaned out?
 	partialMessages := map[uint32][]*messages.Multipart{}
 
-	var toGame chan<- GameMessage = nil // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
+	var toGame *chan<- GameMessage // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
 
 	go func() {
 		for {
@@ -55,8 +57,8 @@ func (client *Client) ProcessBytes(disconClient chan Client) {
 			case msg := <-client.FromGameManager:
 				switch tmsg := msg.(type) {
 				case ConnectedGame:
-					log.Printf("got connected, hooked up toGame channel!")
-					toGame = tmsg.ToGame
+					log.Printf("Got connected, hooked up toGame channel!")
+					atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&toGame)), unsafe.Pointer(tmsg.ToGame))
 				}
 			case <-time.After(time.Second * 10):
 				if !client.Alive {
@@ -128,11 +130,11 @@ func (client *Client) ProcessBytes(disconClient chan Client) {
 			case messages.CreateAcctMsgType, messages.LoginMsgType, messages.ListGamesMsgType, messages.JoinGameMsgType, messages.CreateGameMsgType:
 				client.toGameManager <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
 			default:
-				if toGame == nil {
+				if *toGame == nil {
 					log.Printf("Client sent message (%d:%v) before in a game!", packet.Frame.MsgType, packet.NetMsg)
 					break
 				}
-				toGame <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
+				*toGame <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
 			}
 
 			// Remove the used bytes from the buffer.

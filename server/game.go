@@ -384,7 +384,7 @@ type InternalMessage interface {
 }
 
 type ConnectedGame struct {
-	ToGame chan<- GameMessage
+	ToGame *chan<- GameMessage
 }
 
 type RemovePlayer struct {

@@ -136,8 +136,9 @@ func (gm *GameManager) createGame(msg GameMessage) {
 		},
 	}
 	gm.Users[msg.client.ID].GameID = msg.client.ID
+	var clientnetchan chan<- GameMessage = netchan
 	msg.client.FromGameManager <- ConnectedGame{
-		ToGame: netchan,
+		ToGame: &clientnetchan,
 	}
 	resp := NewOutgoingMsg(msg.client, messages.CreateGameRespMsgType, cgr)
 	gm.ToNetwork <- resp
