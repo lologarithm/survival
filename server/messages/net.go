@@ -592,30 +592,30 @@ func (m *Entity) Len() int {
 type MovePlayer struct {
 	EntityID uint32
 	TickID uint32
-	X byte
-	Y byte
+	X int16
+	Y int16
 }
 
 func (m *MovePlayer) Serialize(buffer *bytes.Buffer) {
 	binary.Write(buffer, binary.LittleEndian, m.EntityID)
 	binary.Write(buffer, binary.LittleEndian, m.TickID)
-	buffer.WriteByte(m.X)
-	buffer.WriteByte(m.Y)
+	binary.Write(buffer, binary.LittleEndian, m.X)
+	binary.Write(buffer, binary.LittleEndian, m.Y)
 }
 
 func (m *MovePlayer) Deserialize(buffer *bytes.Buffer) {
 	binary.Read(buffer, binary.LittleEndian, &m.EntityID)
 	binary.Read(buffer, binary.LittleEndian, &m.TickID)
-	m.X, _ = buffer.ReadByte()
-	m.Y, _ = buffer.ReadByte()
+	binary.Read(buffer, binary.LittleEndian, &m.X)
+	binary.Read(buffer, binary.LittleEndian, &m.Y)
 }
 
 func (m *MovePlayer) Len() int {
 	mylen := 0
 	mylen += 4
 	mylen += 4
-	mylen += 1
-	mylen += 1
+	mylen += 2
+	mylen += 2
 	return mylen
 }
 

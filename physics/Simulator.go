@@ -88,7 +88,7 @@ func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
 			continue
 		}
 		changed = false
-		rigid.Velocity = rigid.Velocity.Add(MultVect2(rigid.Force, rigid.InvMass/SimUpdatesPerSecond))
+		rigid.Velocity = AddVect2(rigid.Velocity, MultVect2(rigid.Force, rigid.InvMass/SimUpdatesPerSecond))
 		rigid.AngularVelocity += (rigid.Torque * float64(rigid.InvInertia)) / SimUpdatesPerSecond
 
 		if rigid.Velocity.X != 0.0 {

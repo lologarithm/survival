@@ -122,8 +122,8 @@ public class NetworkMessenger : MonoBehaviour
     public void MovePlayer(Vector2 vect) {
         MovePlayer outmsg = new MovePlayer();
         outmsg.EntityID = this.characters[0].ID;
-        outmsg.X = vect.x;
-        outmsg.Y = vect.y;
+        outmsg.X = (short)(vect.x*50);
+        outmsg.Y = (short)(vect.y*50);;
         this.sendNetPacket(MsgType.MovePlayer, outmsg);
     }
 

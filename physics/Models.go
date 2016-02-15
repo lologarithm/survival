@@ -27,12 +27,23 @@ func Angle(a Vect2, b Vect2) float64 {
 	return math.Acos(alpha)
 }
 
-type Vect2 struct {
-	X, Y int32
+func AddVect2(v, v2 Vect2) Vect2 {
+	return Vect2{v.X + v2.X, v.Y + v2.Y}
 }
 
-func (v Vect2) Add(v2 Vect2) Vect2 {
-	return Vect2{v.X + v2.X, v.Y + v2.Y}
+// Normalize will normalize a vector to a given magnitude.
+// If mag == 0 it will be normalized to magnitude max of 1.
+func Normalize(a Vect2, mag int32) Vect2 {
+	oldmag := float64(a.Magnitude())
+
+	return Vect2{
+		X: int32((float64(a.X) / oldmag) * float64(mag)),
+		Y: int32((float64(a.Y) / oldmag) * float64(mag)),
+	}
+}
+
+type Vect2 struct {
+	X, Y int32
 }
 
 func (v Vect2) Magnitude() float64 {

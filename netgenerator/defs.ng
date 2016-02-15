@@ -89,8 +89,8 @@ class Entity {
 class MovePlayer {
  EntityID uint32
  TickID uint32
- X byte
- Y byte
+ X int16
+ Y int16
 }
 
 class UseAbility {
