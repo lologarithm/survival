@@ -33,7 +33,6 @@ public class PlayerController : MonoBehaviour {
             moveVector += new Vector2(1, 0);
         }
         if (moveVector.x != 0 || moveVector.y != 0) {
-            moveVector = moveVector.normalized;
             Debug.Log(moveVector.ToString());
             msger.MovePlayer(moveVector);
         }
