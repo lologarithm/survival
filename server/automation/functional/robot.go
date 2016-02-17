@@ -131,9 +131,10 @@ func ProcessMessage(mu *MockUser, msg messages.Packet) {
 		}
 	case messages.CreateGameRespMsgType:
 		sendmsg(mu, messages.NewPacket(messages.MovePlayerMsgType, &messages.MovePlayer{
-			EntityID:  0,
-			TickID:    0,
-			Direction: 90,
+			EntityID: 0,
+			TickID:   0,
+			X:        1,
+			Y:        0,
 		}))
 	case messages.MultipartMsgType:
 		handleMultipart(mu, msg)

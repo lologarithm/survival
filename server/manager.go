@@ -13,15 +13,15 @@ type GameStatus byte
 
 // Game statuses
 const (
-	Unknown GameStatus = 0
-	Running GameStatus = iota
+	UnknownStatus GameStatus = 0
+	RunningStatus GameStatus = iota
 )
 
 // GameManager manages all connected users and games.
 type GameManager struct {
 	// Player data
 	Users      []*User
-	Games      map[uint32]*Game
+	Games      map[uint32]*GameSession
 	NextGameID uint32 // TODO: this shouldn't just be a number..
 
 	FromGames   chan GameMessage // Manager reads this only, all games created write only
@@ -36,10 +36,12 @@ type GameManager struct {
 	AcctByName map[string]*Account
 }
 
+// NewGameManager is the constructor for the main game manager.
+// This should only be called once on a single server.
 func NewGameManager(exit chan int, fromNetwork chan GameMessage, toNetwork chan OutgoingMessage) *GameManager {
 	gm := &GameManager{
 		Users:       make([]*User, math.MaxUint16),
-		Games:       map[uint32]*Game{},
+		Games:       map[uint32]*GameSession{},
 		FromGames:   make(chan GameMessage, 100),
 		FromNetwork: fromNetwork,
 		ToNetwork:   toNetwork,
@@ -50,6 +52,7 @@ func NewGameManager(exit chan int, fromNetwork chan GameMessage, toNetwork chan 
 	return gm
 }
 
+// Run launches the game manager.
 func (gm *GameManager) Run() {
 	for {
 		select {
@@ -136,9 +139,9 @@ func (gm *GameManager) createGame(msg GameMessage) {
 		},
 	}
 	gm.Users[msg.client.ID].GameID = msg.client.ID
-	var clientnetchan chan<- GameMessage = netchan
 	msg.client.FromGameManager <- ConnectedGame{
-		ToGame: &clientnetchan,
+		ToGame: netchan,
+		ID:     msg.client.ID,
 	}
 	resp := NewOutgoingMsg(msg.client, messages.CreateGameRespMsgType, cgr)
 	gm.ToNetwork <- resp
@@ -179,8 +182,9 @@ func (gm *GameManager) createAccount(msg GameMessage) {
 			Name:     netmsg.Name,
 			Password: netmsg.Password,
 			Character: &Character{
-				Name:  netmsg.CharName,
-				Items: []*Item{},
+				Name:           netmsg.CharName,
+				EquippedItems:  make([]*Item, 6),
+				InventoryItems: []*Item{},
 			},
 		}
 
@@ -220,6 +224,7 @@ func (gm *GameManager) loginUser(msg GameMessage) {
 	gm.ToNetwork <- resp
 }
 
+// ProcessGameMsg is used to process messages from an individual game to the main server controller.
 func (gm *GameManager) ProcessGameMsg(msg GameMessage) {
 	switch msg.mtype {
 	}

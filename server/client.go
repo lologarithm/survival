@@ -27,11 +27,16 @@ type Client struct {
 
 	// These channels can be written to in the client but not read from.
 	toGameManager chan<- GameMessage // Messages to the main game manager.
-	toActiveGame  chan<- GameMessage // Messages to the current game
+	activeGame    *clientGame
 
 	Seq     uint16
 	GroupID uint32
 	Alive   bool
+}
+
+type clientGame struct {
+	toGame chan<- GameMessage
+	id     uint32
 }
 
 // ProcessBytes accepts raw bytes from a socket and turns them into NetMessage objects and then
@@ -49,22 +54,27 @@ func (client *Client) ProcessBytes(disconClient chan Client) {
 	// TODO: When should this be cleaned out?
 	partialMessages := map[uint32][]*messages.Multipart{}
 
-	var toGame *chan<- GameMessage // used once client is connected to a game. TODO: Shoudl this be cached on the cilent struct?
-
 	go func() {
 		for {
 			select {
 			case msg := <-client.FromGameManager:
 				switch tmsg := msg.(type) {
 				case ConnectedGame:
+					activeGame := &clientGame{
+						toGame: tmsg.ToGame,
+						id:     tmsg.ID,
+					}
+					atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&client.activeGame)), unsafe.Pointer(activeGame))
 					log.Printf("Got connected, hooked up toGame channel!")
-					atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&toGame)), unsafe.Pointer(tmsg.ToGame))
 				}
 			case <-time.After(time.Second * 10):
 				if !client.Alive {
 					log.Printf("Client %d: no longer alive.", client.ID)
 					return
 				}
+				client.ToNetwork <- NewOutgoingMsg(client, messages.HeartbeatMsgType, &messages.Heartbeat{
+					Time: time.Now().UTC().UnixNano(),
+				})
 				// If after 60 seconds we haven't gotten any messages, shut er down!
 				lastMsg := time.Unix(atomic.LoadInt64(&client.lastMsg), 0)
 				if time.Now().UTC().Sub(lastMsg).Seconds() >= 60 {
@@ -130,11 +140,11 @@ func (client *Client) ProcessBytes(disconClient chan Client) {
 			case messages.CreateAcctMsgType, messages.LoginMsgType, messages.ListGamesMsgType, messages.JoinGameMsgType, messages.CreateGameMsgType:
 				client.toGameManager <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
 			default:
-				if *toGame == nil {
+				if client.activeGame == nil {
 					log.Printf("Client sent message (%d:%v) before in a game!", packet.Frame.MsgType, packet.NetMsg)
 					break
 				}
-				*toGame <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
+				client.activeGame.toGame <- GameMessage{net: packet.NetMsg, client: client, mtype: packet.Frame.MsgType}
 			}
 
 			// Remove the used bytes from the buffer.

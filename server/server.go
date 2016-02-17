@@ -46,6 +46,7 @@ func (s *Server) handleMessage() {
 		s.connections[addrkey] = &Client{
 			address:         addr,
 			FromNetwork:     NewBytePipe(0),
+			ToNetwork:       s.outToNetwork,
 			FromGameManager: make(chan InternalMessage, 10),
 			toGameManager:   s.toGameManager,
 			ID:              s.clientID,

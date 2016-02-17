@@ -18,6 +18,7 @@ const (
 	UnknownMsgType MessageType = iota
 	AckMsgType
 	MultipartMsgType
+	HeartbeatMsgType
 	ConnectedMsgType
 	DisconnectedMsgType
 	CreateAcctMsgType
@@ -45,6 +46,8 @@ func ParseNetMessage(packet Packet, content []byte) Net {
 	switch packet.Frame.MsgType {
 	case MultipartMsgType:
 		msg = &Multipart{}
+	case HeartbeatMsgType:
+		msg = &Heartbeat{}
 	case ConnectedMsgType:
 		msg = &Connected{}
 	case DisconnectedMsgType:
@@ -124,6 +127,24 @@ func (m *Multipart) Len() int {
 	mylen += 4
 	mylen += 2
 	mylen += 4 + len(m.Content)
+	return mylen
+}
+
+type Heartbeat struct {
+	Time int64
+}
+
+func (m *Heartbeat) Serialize(buffer *bytes.Buffer) {
+	binary.Write(buffer, binary.LittleEndian, m.Time)
+}
+
+func (m *Heartbeat) Deserialize(buffer *bytes.Buffer) {
+	binary.Read(buffer, binary.LittleEndian, &m.Time)
+}
+
+func (m *Heartbeat) Len() int {
+	mylen := 0
+	mylen += 8
 	return mylen
 }
 

@@ -12,8 +12,10 @@ import (
 	"github.com/lologarithm/survival/server/messages"
 )
 
+// ChunkSize is how big in 'units' each chunk is.
 const ChunkSize int32 = 10000
 
+// Entity type constants
 const (
 	UnknownEType uint16 = iota
 	RockEType
@@ -23,8 +25,8 @@ const (
 	ProjectileEType
 )
 
-// Game represents a single game
-type Game struct {
+// GameSession represents a single game
+type GameSession struct {
 	ID   uint32
 	Name string
 	Seed uint64 // Select a seed when starting the game!
@@ -71,7 +73,7 @@ func (gw *GameWorld) EntitiesMsg() []*messages.Entity {
 }
 
 // Run starts the game!
-func (g *Game) Run() {
+func (g *GameSession) Run() {
 	waiting := true
 	for {
 		timeout := time.Millisecond * 33
@@ -154,7 +156,8 @@ func (g *Game) Run() {
 	}
 }
 
-func (g *Game) SendMasterFrame() {
+// SendMasterFrame will create a 'master' state of all things and send to each client.
+func (g *GameSession) SendMasterFrame() {
 	mf := &messages.GameMasterFrame{
 		ID:       g.ID,
 		Entities: g.World.EntitiesMsg(),
@@ -178,7 +181,8 @@ func (g *Game) SendMasterFrame() {
 	}
 }
 
-func (g *Game) MoveEntity(c *Client, tmsg *messages.MovePlayer) {
+// MoveEntity is used to move players from a movement message.
+func (g *GameSession) MoveEntity(c *Client, tmsg *messages.MovePlayer) {
 	// TODO: go back in time and apply at tick!
 	id := g.Clients[c.ID].Accounts[0].Character.ID
 	ent := g.World.Entities[id]
@@ -195,7 +199,7 @@ func (g *Game) MoveEntity(c *Client, tmsg *messages.MovePlayer) {
 }
 
 // SpawnChunk creates all the entities for a chunk at the given x/y
-func (g *Game) SpawnChunk(x, y uint32) {
+func (g *GameSession) SpawnChunk(x, y uint32) {
 	h := xxhash.New64()
 	tb := make([]byte, 8)
 
@@ -318,11 +322,11 @@ func (g *Game) SpawnChunk(x, y uint32) {
 }
 
 // NewGame constructs a new game and starts it.
-func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan GameMessage, toNetwork chan<- OutgoingMessage) *Game {
+func NewGame(name string, toGameManager chan<- GameMessage, fromNetwork <-chan GameMessage, toNetwork chan<- OutgoingMessage) *GameSession {
 	seed := uint64(rand.Uint32())
 	seed = seed << 32
 	seed += uint64(rand.Uint32())
-	g := &Game{
+	g := &GameSession{
 		Name:            name,
 		IntoGameManager: toGameManager,
 		FromGameManager: make(chan InternalMessage, 100),
@@ -379,18 +383,22 @@ type GameMessage struct {
 	mtype  messages.MessageType
 }
 
-// InternalMessage is for messages between components that never leaves the server.
+// InternalMessage is for messages between internal components (gamesession and gamemanager) that never leaves the server.
 type InternalMessage interface {
 }
 
+// ConnectedGame is sent to client to notify they are now connected to a game.
 type ConnectedGame struct {
-	ToGame *chan<- GameMessage
+	ID     uint32
+	ToGame chan<- GameMessage
 }
 
+// RemovePlayer is sent to remove a player from a game.
 type RemovePlayer struct {
 	Client *Client
 }
 
+// AddPlayer is sent to add a player to a game.
 type AddPlayer struct {
 	Entity *Entity
 	Client *Client

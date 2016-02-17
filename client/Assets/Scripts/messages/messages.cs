@@ -7,7 +7,7 @@ interface INet {
 	void Deserialize(BinaryReader buffer);
 }
 
-enum MsgType : ushort {Unknown=0,Ack=1,Multipart=2,Connected=3,Disconnected=4,CreateAcct=5,CreateAcctResp=6,Login=7,LoginResp=8,Character=9,ListGames=10,ListGamesResp=11,CreateGame=12,CreateGameResp=13,JoinGame=14,GameConnected=15,GameMasterFrame=16,Entity=17,MovePlayer=18,UseAbility=19,AbilityResult=20,EndGame=21}
+enum MsgType : ushort {Unknown=0,Ack=1,Multipart=2,Heartbeat=3,Connected=4,Disconnected=5,CreateAcct=6,CreateAcctResp=7,Login=8,LoginResp=9,Character=10,ListGames=11,ListGamesResp=12,CreateGame=13,CreateGameResp=14,JoinGame=15,GameConnected=16,GameMasterFrame=17,Entity=18,MovePlayer=19,UseAbility=20,AbilityResult=21,EndGame=22}
 
 static class Messages {
 // ParseNetMessage accepts input of raw bytes from a NetMessage. Parses and returns a Net message.
@@ -18,6 +18,9 @@ public static INet Parse(ushort msgType, byte[] content) {
 	{
 		case MsgType.Multipart:
 			msg = new Multipart();
+			break;
+		case MsgType.Heartbeat:
+			msg = new Heartbeat();
 			break;
 		case MsgType.Connected:
 			msg = new Connected();
@@ -108,6 +111,18 @@ public class Multipart : INet {
 		for (int v2 = 0; v2 < l3_1; v2++) {
 			this.Content[v2] = buffer.ReadByte();
 		}
+	}
+}
+
+public class Heartbeat : INet {
+	public long Time;
+
+	public void Serialize(BinaryWriter buffer) {
+		buffer.Write(this.Time);
+	}
+
+	public void Deserialize(BinaryReader buffer) {
+		this.Time = buffer.ReadInt64();
 	}
 }
 
