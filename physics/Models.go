@@ -1,6 +1,7 @@
 package physics
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/lologarithm/survival/physics/quadtree"
@@ -31,15 +32,28 @@ func AddVect2(v, v2 Vect2) Vect2 {
 	return Vect2{v.X + v2.X, v.Y + v2.Y}
 }
 
+func SubVect2(v, v2 Vect2) Vect2 {
+	return Vect2{v.X - v2.X, v.Y - v2.Y}
+}
+
 // Normalize will normalize a vector to a given magnitude.
 // If mag == 0 it will be normalized to magnitude max of 1.
 func NormalizeVect2(a Vect2, mag int32) Vect2 {
 	oldmag := float64(a.Magnitude())
-
+	if int32(oldmag) == mag {
+		return a
+	}
 	return Vect2{
 		X: int32((float64(a.X) / oldmag) * float64(mag)),
 		Y: int32((float64(a.Y) / oldmag) * float64(mag)),
 	}
+}
+
+func RotateVect2(v Vect2, radians float64) Vect2 {
+	result := Vect2{}
+	result.X = int32(float64(v.X)*math.Cos(radians) - float64(v.Y)*math.Sin(radians))
+	result.Y = int32(float64(v.X)*math.Sin(radians) + float64(v.Y)*math.Cos(radians))
+	return result
 }
 
 type Vect2 struct {
@@ -48,6 +62,10 @@ type Vect2 struct {
 
 func (v Vect2) Magnitude() float64 {
 	return math.Sqrt(float64(v.X*v.X + v.Y*v.Y))
+}
+
+func (v Vect2) String() string {
+	return fmt.Sprintf("(%d,%d)", v.X, v.Y)
 }
 
 // RigidBody is an object in the physics simulation

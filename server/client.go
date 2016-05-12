@@ -79,9 +79,8 @@ func (client *Client) ProcessBytes(disconClient chan Client) {
 				lastMsg := time.Unix(atomic.LoadInt64(&client.lastMsg), 0)
 				if time.Now().UTC().Sub(lastMsg).Seconds() >= 60 {
 					client.FromNetwork.Close()
+					return
 				}
-
-				return
 			}
 		}
 
