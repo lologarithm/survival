@@ -93,7 +93,7 @@ func (rb RigidBody) BoxID() uint32 {
 	return rb.ID
 }
 
-func (rb RigidBody) BoundingBox() quadtree.BoundingBox {
+func (rb RigidBody) Bounds() quadtree.BoundingBox {
 	hh := rb.Height / 2
 	hw := rb.Width / 2
 	if rb.Angle != 0 && rb.Angle != math.Pi && rb.Angle != math.Pi*2 {
@@ -112,6 +112,11 @@ func (rb RigidBody) BoundingBox() quadtree.BoundingBox {
 		return quadtree.NewBoundingBox(rb.Position.X-hwn, rb.Position.X+hwn, rb.Position.Y-hhn, rb.Position.Y+hhn)
 	}
 	return quadtree.NewBoundingBox(rb.Position.X-hw, rb.Position.X+hw, rb.Position.Y-hh, rb.Position.Y+hh)
+}
+
+func (rb RigidBody) Clone() quadtree.BoundingBoxer {
+	nrb := rb
+	return nrb
 }
 
 func NewRigidBody(id uint32, h int32, w int32, pos Vect2, vel Vect2, angle float64, mass int32) *RigidBody {

@@ -124,7 +124,7 @@ func (ss *SimulatedSpace) Tick(sendUpdate bool) []PhysicsEntityUpdate {
 		// 	}
 		// }
 
-		collisions := ss.tree.Query(rigid.BoundingBox())
+		collisions := ss.tree.Query(rigid.Bounds())
 
 		for _, collbox := range collisions {
 			other := collbox.(*RigidBody)

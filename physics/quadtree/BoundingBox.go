@@ -17,7 +17,7 @@ func NewBoundingBox(xa, xb, ya, yb int32) BoundingBox {
 }
 
 // BoundingBox should implement the BoundingBoxer interface.
-func (b BoundingBox) BoundingBox() BoundingBox {
+func (b BoundingBox) Bounds() BoundingBox {
 	return b
 }
 
@@ -33,8 +33,22 @@ func (b BoundingBox) SizeY() int32 {
 
 // Intersects returns true if o intersects this
 func (b BoundingBox) Intersects(o BoundingBox) bool {
-	return b.MinX < o.MaxX && b.MinY < o.MaxY &&
-		b.MaxX > o.MinX && b.MaxY > o.MinY
+	if b.MaxX < o.MinX {
+		return false // a is left of b
+	}
+
+	if b.MinX > o.MaxX {
+		return false // a is right of b
+	}
+	if b.MaxY < o.MinY {
+		return false // a is above b
+	}
+
+	if b.MinY > o.MaxY {
+		return false // a is below b
+	}
+
+	return true // boxes overlap
 }
 
 // Contains returns true if o is within this
@@ -46,4 +60,9 @@ func (b BoundingBox) Contains(o BoundingBox) bool {
 // BoxID returns 0 for bounding box because the box itself doesnt have an ID
 func (b BoundingBox) BoxID() uint32 {
 	return 0
+}
+
+// Clone exists to fulfill the interface
+func (b BoundingBox) Clone() BoundingBoxer {
+	return b
 }

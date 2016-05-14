@@ -22,8 +22,9 @@ const (
 
 // BoundingBoxer interface allows arbitrary objects to be inserted into the quadtree since it only requires a bounding box.
 type BoundingBoxer interface {
-	BoundingBox() BoundingBox
+	Bounds() BoundingBox
 	BoxID() uint32
+	Clone() BoundingBoxer
 }
 
 // QuadTree is the core tree structure.
@@ -52,19 +53,50 @@ func (qb *QuadTree) Add(v BoundingBoxer) {
 	qb.root.add(v)
 }
 
-// Add a value to the quad-tree by trickle down from the root node.
+// Remove a value from the quad-tree by trickle down from the root node.
 func (qb *QuadTree) Remove(v BoundingBoxer) bool {
-	return qb.root.remove(v.BoundingBox(), v.BoxID())
+	return qb.root.remove(v.Bounds(), v.BoxID())
+}
+
+// Move a box to new box
+func (qb *QuadTree) Move(v BoundingBoxer, oldloc BoundingBox) int {
+	return qb.root.move(v.BoxID(), v, oldloc, v.Bounds())
+}
+
+// Clone will create a full copy of this quadtree.
+func (qb *QuadTree) Clone() *QuadTree {
+	return &QuadTree{
+		root: qb.root.clone(),
+	}
 }
 
 // Query will return all objects which intersect the query box
-func (qb *QuadTree) Query(bbox BoundingBox) (values []BoundingBoxer) {
-	return qb.root.query(bbox, values)
+func (qb *QuadTree) Query(bbox BoundingBox) []BoundingBoxer {
+	return qb.root.query(bbox)
+}
+
+func (tile qtile) clone() qtile {
+	ntile := qtile{
+		BoundingBox: tile.BoundingBox,
+		level:       tile.level,
+		contents:    make([]BoundingBoxer, len(tile.contents)),
+		childs:      [4]*qtile{},
+	}
+	for idx, bb := range tile.contents {
+		ntile.contents[idx] = bb.Clone()
+	}
+	for idx, c := range tile.childs {
+		if c != nil {
+			cClone := c.clone()
+			ntile.childs[idx] = &cClone
+		}
+	}
+	return ntile
 }
 
 func (tile *qtile) add(v BoundingBoxer) {
 	// look for sub-tile directly below this tile to accomodate value.
-	if i := tile.findChildIndex(v.BoundingBox()); i < 0 {
+	if i := tile.findChildIndex(v.Bounds()); i < 0 {
 		// no suitable sub-tile for value found.
 		// either this tile has no childs or
 		// value does not fit in any subtile.
@@ -110,17 +142,60 @@ func (tile *qtile) split() {
 	tile.childs[bottomLeftTile] = &qtile{BoundingBox: NewBoundingBox(tile.MinX, mx, tile.MinY, my), level: tile.level + 1}
 	tile.childs[bottomRightTile] = &qtile{BoundingBox: NewBoundingBox(mx, tile.MaxX, tile.MinY, my), level: tile.level + 1}
 
-	// copy values to temporary slice
-	var contentsBak []BoundingBoxer
-	contentsBak = append(contentsBak, tile.contents...)
+	tempList := tile.contents
 
 	// clear values on this tile
 	tile.contents = []BoundingBoxer{}
 
-	// reinsert from temporary slice
-	for _, v := range contentsBak {
+	// reinsert from parent slice
+	for _, v := range tempList {
 		tile.add(v)
 	}
+
+}
+
+// 0 == not found, 1 == found, needs home, 2 == completed
+func (tile *qtile) move(id uint32, bb BoundingBoxer, old, newb BoundingBox) int {
+	// end recursion if this tile does not intersect the query range
+	if !tile.Intersects(old) {
+		return 0
+	}
+
+	for vidx, v := range tile.contents {
+		if id == v.BoxID() {
+			if tile.Intersects(newb) {
+				return 2
+			}
+			// REMOVE IT
+			tile.contents = append(tile.contents[:vidx], tile.contents[vidx+1:]...)
+			return 1
+		}
+	}
+
+	// recurse into childs (if any)
+	if tile.childs[topRightTile] != nil {
+		for _, child := range tile.childs {
+			cr := child.move(id, bb, old, newb)
+			// Not found, continue searching
+			if cr == 0 {
+				continue
+			}
+			// Found&Handled, return now!
+			if cr == 2 {
+				return 2
+			}
+			// Found but not inserted
+			if !tile.Intersects(newb) {
+				// New loc doesn't fit in here, pass it up!
+				return 1
+			}
+			// Add new loc here!
+			tile.add(bb)
+			return 2
+		}
+	}
+
+	return 0
 }
 
 func (tile *qtile) remove(qbox BoundingBox, id uint32) bool {
@@ -131,7 +206,7 @@ func (tile *qtile) remove(qbox BoundingBox, id uint32) bool {
 
 	// return candidates at this tile
 	for vidx, v := range tile.contents {
-		if qbox.Intersects(v.BoundingBox()) && id == v.BoxID() {
+		if id == v.BoxID() {
 			// REMOVE IT
 			tile.contents = append(tile.contents[:vidx], tile.contents[vidx+1:]...)
 			return true
@@ -150,7 +225,8 @@ func (tile *qtile) remove(qbox BoundingBox, id uint32) bool {
 	return false
 }
 
-func (tile *qtile) query(qbox BoundingBox, ret []BoundingBoxer) []BoundingBoxer {
+func (tile *qtile) query(qbox BoundingBox) []BoundingBoxer {
+	ret := []BoundingBoxer{}
 	// end recursion if this tile does not intersect the query range
 	if !tile.Intersects(qbox) {
 		return ret
@@ -158,7 +234,7 @@ func (tile *qtile) query(qbox BoundingBox, ret []BoundingBoxer) []BoundingBoxer 
 
 	// return candidates at this tile
 	for _, v := range tile.contents {
-		if qbox.Intersects(v.BoundingBox()) {
+		if qbox.Intersects(v.Bounds()) {
 			ret = append(ret, v)
 		}
 	}
@@ -166,7 +242,7 @@ func (tile *qtile) query(qbox BoundingBox, ret []BoundingBoxer) []BoundingBoxer 
 	// recurse into childs (if any)
 	if tile.childs[topRightTile] != nil {
 		for _, child := range tile.childs {
-			ret = child.query(qbox, ret)
+			ret = append(ret, child.query(qbox)...)
 		}
 	}
 

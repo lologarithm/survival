@@ -4,10 +4,14 @@ Copyright 2013 Volker Poplawski
 
 package quadtree
 
-import "testing"
-import "math"
-import "math/rand"
-import _ "fmt"
+import (
+	"log"
+	"math"
+	"testing"
+
+	_ "fmt"
+	"math/rand"
+)
 
 // Generates n BoundingBoxes in the range of frame with average width and height avgSize
 func randomBoundingBoxes(n int, frame BoundingBox, avgSize float64) []BoundingBox {
@@ -16,8 +20,8 @@ func randomBoundingBoxes(n int, frame BoundingBox, avgSize float64) []BoundingBo
 	for i := 0; i < len(ret); i++ {
 		w := int32(rand.NormFloat64() * avgSize)
 		h := int32(rand.NormFloat64() * avgSize)
-		x := rand.Int31()*frame.SizeX() + frame.MinX
-		y := rand.Int31()*frame.SizeY() + frame.MinY
+		x := int32(rand.Float64()*float64(frame.SizeX())) + frame.MinX
+		y := int32(rand.Float64()*float64(frame.SizeY())) + frame.MinY
 		ret[i] = NewBoundingBox(x, int32(math.Min(float64(frame.MaxX), float64(x+w))), y, int32(math.Min(float64(frame.MaxY), float64(y+h))))
 	}
 
@@ -27,7 +31,7 @@ func randomBoundingBoxes(n int, frame BoundingBox, avgSize float64) []BoundingBo
 // Returns all elements of data which intersect query
 func queryLinear(data []BoundingBox, query BoundingBox) (ret []BoundingBoxer) {
 	for _, v := range data {
-		if query.Intersects(v.BoundingBox()) {
+		if query.Intersects(v.Bounds()) {
 			ret = append(ret, v)
 		}
 	}
@@ -36,8 +40,8 @@ func queryLinear(data []BoundingBox, query BoundingBox) (ret []BoundingBoxer) {
 }
 
 func compareBoundingBoxer(v1, v2 BoundingBoxer) bool {
-	b1 := v1.BoundingBox()
-	b2 := v2.BoundingBox()
+	b1 := v1.Bounds()
+	b2 := v2.Bounds()
 
 	return b1.MinX == b2.MinX && b1.MaxX == b2.MaxX &&
 		b1.MinY == b2.MinY && b2.MaxY == b2.MaxY
@@ -63,7 +67,7 @@ func lookupResults(r1, r2 []BoundingBoxer) int {
 }
 
 // World-space extends from -1000..1000 in X and Y direction
-var world BoundingBox = NewBoundingBox(-1000.0, 1000.0, -1000.0, 1000.0)
+var world BoundingBox = NewBoundingBox(-1000000, 1000000, -1000000, 1000000)
 
 // Compary correctness of quad-tree results vs simple look-up on set of random rectangles
 func TestQuadTreeRects(t *testing.T) {
@@ -92,6 +96,37 @@ func TestQuadTreeRects(t *testing.T) {
 			t.Errorf("%v was not returned by brute-force\n", r2[i])
 		}
 
+	}
+}
+
+type mockBox struct {
+	BoundingBox
+	ID uint32
+}
+
+func (mb mockBox) BoxID() uint32 {
+	return mb.ID
+}
+
+func TestQuadRemove(t *testing.T) {
+	points := randomBoundingBoxes(10, world, 10)
+	qt := NewQuadTree(world)
+
+	boxes := make([]mockBox, len(points))
+	for idx, v := range points {
+		boxes[idx] = mockBox{BoundingBox: v, ID: uint32(idx + 1)}
+		qt.Add(boxes[idx])
+	}
+
+	childs := qt.Query(world)
+	if len(childs) != 10 {
+		log.Printf("Failed to find all children in the world! expected: %d, actual: %d", 10, len(childs))
+		t.FailNow()
+	}
+
+	found := qt.Remove(boxes[0])
+	if !found {
+		log.Printf("Box not found!? %d", boxes[0].ID)
 	}
 }
 
@@ -140,11 +175,18 @@ func BenchmarkInsert(b *testing.B) {
 }
 
 // A set of 10 million randomly distributed rectangles of avg size 5
-var boxes10M []BoundingBox = randomBoundingBoxes(10*1000*1000, world, 5)
+var boxes10M []BoundingBox
+
+// A set of 10 million randomly distributed points
+var points10M []BoundingBox
 
 // Benchmark quad-tree on set of rectangles
 func BenchmarkRectsQuadtree(b *testing.B) {
 	b.StopTimer()
+	if boxes10M == nil {
+		boxes10M = randomBoundingBoxes(10*1000*1000, world, 5)
+		points10M = randomBoundingBoxes(10*1000*1000, world, 0)
+	}
 	rand.Seed(1)
 	qt := NewQuadTree(world)
 
@@ -163,6 +205,9 @@ func BenchmarkRectsQuadtree(b *testing.B) {
 // Benchmark simple look up on set of rectangles
 func BenchmarkRectsLinear(b *testing.B) {
 	b.StopTimer()
+	if boxes10M == nil {
+		boxes10M = randomBoundingBoxes(10*1000*1000, world, 5)
+	}
 	rand.Seed(1)
 	queries := randomBoundingBoxes(b.N, world, 10)
 
@@ -172,12 +217,12 @@ func BenchmarkRectsLinear(b *testing.B) {
 	}
 }
 
-// A set of 10 million randomly distributed points
-var points10M []BoundingBox = randomBoundingBoxes(10*1000*1000, world, 0)
-
 // Benchmark quad-tree on set of points
 func BenchmarkPointsQuadtree(b *testing.B) {
 	b.StopTimer()
+	if points10M == nil {
+		points10M = randomBoundingBoxes(10*1000*1000, world, 0)
+	}
 	rand.Seed(1)
 	qt := NewQuadTree(world)
 
@@ -196,6 +241,9 @@ func BenchmarkPointsQuadtree(b *testing.B) {
 // Benchmark simple look-up on set of points
 func BenchmarkPointsLinear(b *testing.B) {
 	b.StopTimer()
+	if points10M == nil {
+		points10M = randomBoundingBoxes(10*1000*1000, world, 0)
+	}
 	rand.Seed(1)
 	queries := randomBoundingBoxes(b.N, world, 10)
 
