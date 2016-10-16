@@ -64,10 +64,9 @@ func (qb *QuadTree) Move(v BoundingBoxer, oldloc BoundingBox) int {
 }
 
 // Clone will create a full copy of this quadtree.
-func (qb *QuadTree) Clone() *QuadTree {
-	return &QuadTree{
-		root: qb.root.clone(),
-	}
+func (qb *QuadTree) Clone() (*QuadTree, []BoundingBoxer) {
+	root, children := qb.root.clone()
+	return &QuadTree{root: root}, children
 }
 
 // Query will return all objects which intersect the query box
@@ -75,7 +74,7 @@ func (qb *QuadTree) Query(bbox BoundingBox) []BoundingBoxer {
 	return qb.root.query(bbox)
 }
 
-func (tile qtile) clone() qtile {
+func (tile qtile) clone() (qtile, []BoundingBoxer) {
 	ntile := qtile{
 		BoundingBox: tile.BoundingBox,
 		level:       tile.level,
@@ -85,13 +84,15 @@ func (tile qtile) clone() qtile {
 	for idx, bb := range tile.contents {
 		ntile.contents[idx] = bb.Clone()
 	}
+	contents := ntile.contents
 	for idx, c := range tile.childs {
 		if c != nil {
-			cClone := c.clone()
+			cClone, ccont := c.clone()
 			ntile.childs[idx] = &cClone
+			contents = append(contents, ccont...)
 		}
 	}
-	return ntile
+	return ntile, contents
 }
 
 func (tile *qtile) add(v BoundingBoxer) {
